@@ -11,11 +11,11 @@
 <main>
   <header class="top">
     <div class="eyebrow">MotoAddict · Phase 1 · Chosen style</div>
-    <h1>Pixel art, top-down tycoon camera</h1>
-    <p>The main dealership at Location 3 (2:47 PM, open), seen from the same angled overhead camera as Prison Empire Tycoon, plus the Kawasaki Ninja H2 supplier card. <a href="../">See all 5 original styles</a></p>
+    <h1>Pixel art, top-down tycoon camera · landscape</h1>
+    <p>The main dealership at Location 3 (2:47 PM, open) on an iPhone held sideways, seen from the same angled overhead camera as Prison Empire Tycoon. Bikes and people are real 3D models, lit and pixelated. <a href="../">See all 5 original styles</a></p>
   </header>
   <div class="grid">
-    <div class="col">
+    <div class="col wide">
       <h3>Main dealership screen</h3>
       <div class="phone"><div class="screen" id="screen"></div></div>
     </div>
@@ -27,7 +27,8 @@
         <li><b>Showroom</b> (center): bikes on display, the H2 on a turntable, a salesman with a customer who wants to haggle (!), receptionist, janitor cleaning a trash pile.</li>
         <li><b>Rooms around it</b>: parts &amp; gear shop, customer lounge, finance office, restrooms, security office, storage, service bay (lifts), detailing bay.</li>
         <li><b>Outside</b>: outdoor display, parking lot, landscaping, and an empty plot to expand onto.</li>
-        <li><b>HUD</b>: cash + income rate, rating + cleanliness, staff and showroom capacity, real-time clock with OPEN/CLOSED, today's earnings, location switcher, challenges, stats, achievements, a time-limited trade-in offer, supplier, upgrades, overnight deliveries, staff, display arranging, save code and settings.</li>
+        <li><b>HUD</b> (kept to the edges): top bar with cash + income rate, clock with OPEN/CLOSED, rating + cleanliness, staff + showroom capacity. Left: location switcher and a time-limited trade-in offer. Right: locations map, daily challenges, stats, achievements. Bottom: supplier, upgrades, overnight deliveries, save code, settings, staff.</li>
+        <li><b>Portrait</b>: holding the phone upright will show a "rotate your phone" screen.</li>
       </ul>
     </div>
   </div>
@@ -36,7 +37,7 @@
   await document.fonts.load('16px "Jersey 10"').catch(() => {});
   const { buildPhone, buildCard } = await import('../js/pixelui.js');
   await Promise.all([buildPhone(document.getElementById('screen')), buildCard(document.getElementById('card'))]);
-  const ro = new ResizeObserver((es) => es.forEach((e) => e.target.style.setProperty('--k', e.contentRect.width / 390)));
+  const ro = new ResizeObserver((es) => es.forEach((e) => e.target.style.setProperty('--k', e.contentRect.width / 844)));
   ro.observe(document.querySelector('.phone'));
   document.body.dataset.ready = '1';
 </script>

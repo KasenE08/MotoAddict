@@ -11,7 +11,7 @@ await page.goto('http://localhost:4174/preview/');
 await page.waitForSelector('body[data-ready]');
 await page.waitForTimeout(300);
 for (let i = 1; i <= 5; i++) await page.locator(`#style-${i}`).screenshot({ path: `shots/style-${i}.png` });
-const px = await browser.newPage({ viewport: { width: 1100, height: 1000 }, deviceScaleFactor: 2 });
+const px = await browser.newPage({ viewport: { width: 1200, height: 1100 }, deviceScaleFactor: 2 });
 await px.goto('http://localhost:4174/preview/pixel/');
 await px.waitForSelector('body[data-ready]');
 await px.locator('.phone').screenshot({ path: 'shots/pixel-dealership.png' });

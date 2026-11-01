@@ -62,3 +62,29 @@ describe('pixel iso projection', async () => {
     expect(textW('+$32,700')).toBeGreaterThan(20);
   });
 });
+
+describe('3D bikes', async () => {
+  const { flatten, extrude, bikeMesh, renderBike3D } = await import('../../preview/js/bike3d.js');
+  it('flattens SVG paths into polygons', () => {
+    expect(flatten('M0,0 L10,0 L10,10 Z')).toEqual([[0, 0], [10, 0], [10, 10]]);
+    expect(flatten('M0,0 Q5,10 10,0', 4)).toHaveLength(5);
+  });
+  it('extrudes a square into a closed box with outward normals', () => {
+    const f = extrude([[166, 177], [266, 177], [266, 77], [166, 77]], -0.1, 0.1, 'x');
+    expect(f).toHaveLength(6);
+    for (const face of f.slice(2)) {
+      const c = face.pts.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[2] / 4], [0, 0]);
+      // normal points away from the box centre (u=0.42, w=0.42)
+      expect((c[0] - 0.419) * face.n[0] + (c[1] - 0.419) * face.n[2]).toBeGreaterThan(0);
+    }
+  });
+  it('builds a full mesh and renders it from any heading', () => {
+    expect(bikeMesh().length).toBeGreaterThan(300);
+    for (const deg of [0, 45, 90, 180, 270]) {
+      const r = renderBike3D('h2', (deg * Math.PI) / 180, 12);
+      const filled = r.cb.filter(Boolean).length;
+      expect(filled).toBeGreaterThan(100);
+      expect(r.W).toBeLessThan(60);
+    }
+  });
+});

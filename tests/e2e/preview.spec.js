@@ -35,7 +35,7 @@ test('landing page links to both previews', async ({ page }) => {
   await expect(page).toHaveURL(/preview\/$/);
 });
 
-test('chosen pixel style: iso dealership + H2 card render', async ({ page }) => {
+test('chosen pixel style: landscape iso dealership + 3D H2 card render', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -49,11 +49,15 @@ test('chosen pixel style: iso dealership + H2 card render', async ({ page }) => 
     for (let i = 0; i < d.length; i += 4 * 37) colors.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
     return { w: c.width, h: c.height, colors: colors.size };
   });
-  expect(info).toMatchObject({ w: 195, h: 422 });
+  expect(info).toMatchObject({ w: 422, h: 195 });
   expect(info.colors).toBeGreaterThan(20);
-  await expect(page.locator('.hud .a')).toContainText('$128,450');
+  await expect(page.locator('.topbar .cash')).toContainText('$128,450');
   await expect(page.locator('.clock')).toContainText('OPEN');
-  await expect(page.locator('.bottom .bb')).toHaveCount(3);
+  await expect(page.locator('.bl .bb, .br .bb')).toHaveCount(3);
+  await expect(page.locator('.rcol .tb')).toHaveCount(4);
+  // landscape phone: HUD stays inside the 844x390 screen
+  const box = await page.locator('.topbar').evaluate((el) => ({ w: el.scrollWidth, cw: el.clientWidth }));
+  expect(box.w).toBeLessThanOrEqual(box.cw);
   await expect(page.locator('#card .sp')).toContainText('998');
   await expect(page.locator('#card .sp')).toContainText('228');
   await expect(page.locator('#card')).toContainText('$32,700');

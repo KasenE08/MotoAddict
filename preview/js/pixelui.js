@@ -1,6 +1,6 @@
 // Pixel HUD for the chosen style: layout modelled on Prison Empire Tycoon's main screen.
 import { renderDealership } from './pixeliso.js';
-import { bikeSprite } from './styles/pixel.js';
+import { renderBike3D } from './bike3d.js';
 import { H2_SPECS } from './bike.js';
 
 // 24x24 stroke paths, turned into crisp pixel icons at load time.
@@ -80,44 +80,39 @@ export async function buildPhone(screen) {
   const canvas = document.createElement('canvas');
   canvas.className = 'world';
   await renderDealership(canvas);
-  const r1 = await bikeSprite('r1', 40);
+  const tr = renderBike3D('r1', -0.35, 18);
   screen.innerHTML = await fill(`
-    <div class="statusbar"><span>9:41</span><span class="sb-r"><i></i><i></i><i></i><b></b></span></div>
     <div class="hud">
-      <div class="pnl a"><div class="row">{{bill:28}}<b>$128,450</b></div><div class="row sub">{{trend:28}}<span class="g">+$1,240/min</span></div></div>
-      <div class="pnl b"><div class="row">{{star:26}}<b>4.6</b></div><div class="row">{{broom:26}}<b>92%</b></div></div>
-      <div class="pnl c"><div class="row">{{staff:26}}<b>14/20</b></div><div class="row">{{bike:26}}<b>9/12</b></div></div>
-      <div class="pill clock">{{clock:26}}<b>2:47 PM</b><span class="tag">OPEN</span></div>
-      <div class="pnl today"><span>TODAY</span><b>$48.2K</b></div>
-      <div class="pnl loc">{{rank:32}}<div><small>LOCATION 3</small><b>Maple Heights</b></div>{{swap:26}}</div>
-      <div class="btns r1"><i class="tb">{{map:32}}<em>!</em></i><i class="tb">{{task:32}}<em class="n">1/3</em></i><i class="tb">{{bars:32}}</i></div>
-      <div class="promo"><img class="pb" src="${r1.toDataURL()}" alt=""><div><b>TRADE-IN!</b><span>Yamaha R1 '19</span><em>4m 12s</em></div></div>
-      <div class="btns r2"><i class="tb">{{trophy:32}}<em class="n">2</em></i></div>
-    </div>
-    <div class="mini"><i>{{save:30}}</i><i>{{gear:30}}</i></div>
-    <div class="bottom">
-      <i class="bb big">{{cart:44}}</i>
-      <i class="bb">{{hammer:40}}</i>
-      <div class="pnl deliv">{{truck:30}}<div><b>3 bikes</b><span>arrive 9 AM</span></div></div>
-      <i class="bb">{{staff:40:#fff6e0}}</i>
+      <div class="topbar">
+        <div class="pnl cash">{{bill:26}}<b>$128,450</b><span class="g">+$1,240/min</span></div>
+        <div class="pill clock">{{clock:24}}<b>2:47 PM</b><span class="tag">OPEN</span></div>
+        <div class="pnl stat">{{star:24}}<b>4.6</b>{{broom:24}}<b>92%</b></div>
+        <div class="pnl stat">{{staff:24}}<b>14/20</b>{{bike:24}}<b>9/12</b></div>
+      </div>
+      <div class="pnl loc">{{rank:30}}<div><small>LOCATION 3</small><b>Maple Heights</b></div>{{swap:24}}</div>
+      <div class="promo"><img class="pb" src="${tr.c.toDataURL()}" alt=""><div><b>TRADE-IN!</b><span>Yamaha R1 '19</span><em>4m 12s</em></div></div>
+      <div class="rcol"><i class="tb">{{map:28}}<em>!</em></i><i class="tb">{{task:28}}<em class="n">1/3</em></i><i class="tb">{{bars:28}}</i><i class="tb">{{trophy:28}}<em class="n">2</em></i></div>
+      <div class="bl"><i class="bb big">{{cart:38}}</i><i class="bb">{{hammer:34}}</i><div class="pnl deliv">{{truck:28}}<div><b>3 bikes</b><span>arrive 9 AM</span></div></div></div>
+      <div class="br"><i class="sq">{{save:26}}</i><i class="sq">{{gear:26}}</i><i class="bb">{{staff:34:#fff6e0}}</i></div>
     </div>
     <div class="homebar"></div>`);
   screen.prepend(canvas);
 }
 
 export async function buildCard(el) {
-  const s = await bikeSprite('h2', 120);
+  const s = renderBike3D('h2', (-22 * Math.PI) / 180, 30, { lift: 0.08 });
   const c = document.createElement('canvas');
-  c.width = 180; c.height = 100;
+  c.width = 150; c.height = 84;
   const x = c.getContext('2d');
   const r = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
-  // showroom backdrop: wall, window, checker floor, turntable
-  r('#f4f0e6', 0, 0, 180, 62); r('#d5dae3', 0, 56, 180, 6);
-  r('#120b1c', 20, 8, 60, 34); r('#a6e1ff', 21, 9, 58, 32); r('#5ab0e8', 21, 30, 58, 11); r('#ffffff', 26, 12, 1, 8); r('#ffffff', 28, 12, 1, 4);
-  r('#120b1c', 100, 8, 60, 34); r('#a6e1ff', 101, 9, 58, 32); r('#5ab0e8', 101, 30, 58, 11); r('#ffffff', 106, 12, 1, 8);
-  for (let yy = 62; yy < 100; yy += 6) for (let xx = 0; xx < 180; xx += 6) r(((xx + yy) / 6) % 2 ? '#e6e9ef' : '#cfd5e0', xx, yy, 6, 6);
-  r('#5a4878', 22, 88, 136, 5); r('#c2b6d6', 24, 85, 132, 4); r('#d5dae3', 30, 85, 120, 2);
-  x.drawImage(s, Math.round(90 - (166 / 320) * s.width), Math.round(87 - (178 / 190) * s.height));
+  // showroom corner: back wall with windows, iso checker floor, turntable
+  r('#f4f0e6', 0, 0, 150, 38); r('#d5dae3', 0, 35, 150, 3);
+  for (const wx of [10, 84]) { r('#120b1c', wx, 6, 56, 24); r('#a6e1ff', wx + 1, 7, 54, 22); r('#5ab0e8', wx + 1, 21, 54, 8); r('#ffffff', wx + 5, 9, 1, 6); r('#ffffff', wx + 7, 9, 1, 3); }
+  for (let yy = 38; yy < 84; yy++) for (let xx = 0; xx < 150; xx++) { const u = Math.floor((xx + 2 * (yy - 38)) / 18), v = Math.floor((xx - 2 * (yy - 38) + 300) / 18); r((u + v) % 2 ? '#e6e9ef' : '#cfd5e0', xx, yy, 1, 1); }
+  const ell = (cy, rx, ry, col) => { x.fillStyle = col; for (let dy = -ry; dy <= ry; dy++) { const hw = Math.round(rx * Math.sqrt(1 - (dy / ry) ** 2)); x.fillRect(75 - hw, cy + dy, hw * 2 + 1, 1); } };
+  ell(67, 62, 14, '#5a4878'); ell(64, 62, 14, '#c2b6d6'); ell(64, 50, 11, '#d5dae3');
+  ell(66, 44, 7, 'rgba(18,11,28,0.22)');
+  x.drawImage(s.c, 75 - s.ax + 3, 67 - s.ay);
   const sp = H2_SPECS;
   el.innerHTML = await fill(`
     <div class="ch"><span>SUPPLIER</span><b>KAWASAKI</b></div>
