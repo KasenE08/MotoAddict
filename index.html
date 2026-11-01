@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MotoAddict">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<title>MotoAddict</title>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="logo">MOTO<span>ADDICT</span></div>
+    <div class="cash" id="cash">$0</div>
+    <div class="sub"><span id="ips">$0/S</span><span id="repTag">REP 0</span></div>
+    <div id="buffs"></div>
+  </header>
+  <div id="event" class="hidden"></div>
+  <main id="view"></main>
+  <nav id="tabs">
+    <button data-tab="shop" class="on">SHOP</button>
+    <button data-tab="race">RACE</button>
+    <button data-tab="garage">GARAGE</button>
+    <button data-tab="legacy">LEGACY</button>
+    <button data-tab="stats">STATS</button>
+  </nav>
+</div>
+<div id="modal" class="hidden"><div class="box" id="modalBox"></div></div>
+<div id="toasts"></div>
+<script src="game.js"></script>
+</body>
+</html>
