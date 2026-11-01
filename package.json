@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "serve": "node scripts/serve.js",
-    "test": "vitest run",
+    "test": "TZ=America/New_York vitest run",
     "test:e2e": "playwright test",
     "shots": "node scripts/screenshots.js"
   },

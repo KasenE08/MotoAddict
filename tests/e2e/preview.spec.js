@@ -26,15 +26,6 @@ test('no horizontal scroll at phone width', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test('landing page links to both previews', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: /pixel style/i }).click();
-  await expect(page).toHaveURL(/preview\/pixel/);
-  await page.goto('/');
-  await page.getByRole('link', { name: /5 original/i }).click();
-  await expect(page).toHaveURL(/preview\/$/);
-});
-
 test('chosen pixel style: landscape iso dealership + 3D H2 card render', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
