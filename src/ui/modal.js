@@ -22,6 +22,7 @@ export async function openModal({ title, body, actions = [], onClose, cls = '' }
 export function closeModal() { document.querySelectorAll('.modal-wrap').forEach((m) => m.remove()); }
 
 export function toast(text) {
+  document.querySelectorAll('.toast').forEach((old) => old.remove()); // newest message replaces the last
   const t = document.createElement('div');
   t.className = 'toast hud-el';
   t.textContent = text;

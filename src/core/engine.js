@@ -9,7 +9,9 @@ export function newGame(now) {
     lastTick: now,
     cash: START_CASH, // one shared balance across every location
     activeLoc: 0,
-    locations: LOCATIONS.map((l, i) => ({ id: l.id, owned: i === 0, earned: 0 })),
+    locations: LOCATIONS.map((l, i) => ({ id: l.id, owned: i === 0, earned: 0, bikes: [], capacityBonus: 0 })),
+    orders: [], // supplier orders waiting for the overnight truck
+    nextUid: 1,
     offlineCapHours: OFFLINE_CAP_HOURS.base, // raised by the offline-cap upgrade (Phase 6)
     stats: { totalEarned: 0, offlineEarned: 0, daysOpened: 0, bestDay: 0 },
     today: { key: dayKey(now), earned: 0 },
@@ -21,6 +23,9 @@ export function newGame(now) {
 // open/close hooks (wages, deliveries, theft, ...).
 const incomeSources = [];
 const hooks = [];
+const processors = [];
+/** Systems that need to act during a time advance (deliveries, ...). */
+export const addProcessor = (fn) => processors.push(fn);
 export const addIncomeSource = (fn) => incomeSources.push(fn);
 export const addDayHook = (fn) => hooks.push(fn);
 
@@ -51,7 +56,7 @@ function addEarnings(state, amount, atMs) {
 export function advance(state, now, { offline = false } = {}) {
   const from = state.lastTick;
   const report = { earned: 0, openMs: 0, countedMs: 0, awayMs: Math.max(0, now - from), capped: false, events: [] };
-  if (!(now > from)) { state.lastTick = now; return report; } // clock went backwards: never earn, never lose
+  if (!(now > from)) { state.lastTick = now; report.delivered = []; return report; } // clock went backwards: never earn, never lose
   const rate = totalRate(state);
   const capMs = offline ? state.offlineCapHours * 3600e3 : Infinity;
   for (const w of openWindows(from, now)) {
@@ -70,6 +75,7 @@ export function advance(state, now, { offline = false } = {}) {
   state.cash += report.earned;
   state.stats.totalEarned += report.earned;
   if (offline) state.stats.offlineEarned += report.earned;
+  for (const p of processors) p(state, from, now, report);
   for (const b of boundaries(from, now)) {
     if (b.type === 'open') state.stats.daysOpened++;
     for (const h of hooks) h(state, b);

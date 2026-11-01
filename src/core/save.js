@@ -26,6 +26,8 @@ const fromB64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/
 export const MIGRATIONS = {
   // 0 -> 1: pre-release saves stored `money` instead of `cash`.
   0: (s) => { const { money, ...rest } = s; return { ...rest, cash: rest.cash ?? money ?? 0, v: 1 }; },
+  // 1 -> 2 (Phase 3): showroom inventory + supplier orders.
+  1: (s) => ({ ...s, v: 2, orders: s.orders ?? [], nextUid: s.nextUid ?? 1, locations: (s.locations ?? []).map((l) => ({ bikes: [], capacityBonus: 0, ...l })) }),
 };
 
 export function migrate(data) {

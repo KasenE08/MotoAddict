@@ -2,6 +2,7 @@
 // Each part of the side-profile art is extruded to a real width, lit, and
 // rasterized with a z-buffer, so bikes look solid from any heading.
 import { P as PROFILE, REAR, FRONT, TIRE_R, RIM_R, FRAME_LINES, FORK_UP, FORK_LOW } from './bike.js';
+import { BIKE } from '../data/bikes.js';
 
 const S = 0.00838; // meters per profile unit (tire diameter 74 units = 0.62 m)
 const CX = 166, GROUND = 177;
@@ -84,36 +85,64 @@ export function extrudeBevel(poly, hw, inset, mat, core = 0.65) {
   return faces;
 }
 
-// Build the sport-bike mesh (local axes: u forward, v sideways, w up; meters).
-export function bikeMesh(seg = 18) {
+// ---- per-model shape + paint ----
+const BELLY = [[134, 94], [212, 90], [226, 100], [214, 126], [180, 137], [146, 135], [132, 118]];
+const SIDE_PIPE = [[156, 126], [128, 110], [117, 114], [117, 123], [150, 139]];
+const UNDER_PIPE = [[150, 131], [198, 129], [194, 140], [154, 142]];
+const WING = [[230, 82], [253, 79], [257, 86], [232, 91]];
+
+function deformer(look) {
+  const size = look.size ?? 1;
+  const [rise, tlen] = look.tail ?? [0, 1];
+  const [nlen, ndrop] = look.nose ?? [1, 0];
+  const sz = ([x, y]) => [166 + (x - 166) * size, 177 - (177 - y) * size];
+  return {
+    size: sz,
+    tail: ([x, y]) => (x < 150 ? sz([150 - (150 - x) * tlen, y - rise * ((150 - x) / 110)]) : sz([x, y])),
+    nose: ([x, y]) => (x > 236 ? sz([236 + (x - 236) * nlen, y + ndrop * ((x - 236) / 50)]) : sz([x, y])),
+  };
+}
+
+// Build a bike mesh (local axes: u forward, v sideways, w up; meters).
+export function bikeMesh(look, seg = 18) {
   const F = [];
-  const add = (poly, v0, v1, mat) => F.push(...extrude(poly, v0, v1, mat));
-  const bev = (poly, hw, inset, mat) => F.push(...extrudeBevel(poly, hw, inset, mat));
-  const both = (poly, a, b, mat) => { add(poly, a, b, mat); add(poly, -b, -a, mat); };
-  add(flatten(PROFILE.swingarm), -0.07, 0.07, 'engine');
-  for (const [c, hw] of [[REAR, 0.095], [FRONT, 0.065]]) {
+  const D = deformer(look);
+  const add = (poly, v0, v1, mat, fn = D.size) => F.push(...extrude(poly.map(fn), v0, v1, mat));
+  const bev = (poly, hw, inset, mat, fn = D.size) => F.push(...extrudeBevel(poly.map(fn), hw, inset, mat));
+  const both = (poly, a, b, mat, fn) => { add(poly, a, b, mat, fn); add(poly, -b, -a, mat, fn); };
+  const size = look.size ?? 1;
+  for (const [c, hw0] of [[REAR, 0.095], [FRONT, 0.065]]) {
+    const hw = hw0 * (size < 0.9 ? 0.8 : 1);
     bev(circle(c, TIRE_R, seg), hw, 0.9, 'tire');
     add(circle(c, RIM_R, seg), -hw - 0.006, hw + 0.006, 'rim');
     add(circle(c, 7, 10), -hw - 0.012, hw + 0.012, 'hub');
   }
-  both(circle([FRONT[0], FRONT[1]], 21, 16).map((q) => q), 0.072, 0.08, 'disc');
+  both(circle(FRONT, 21, 16), 0.072, 0.08, 'disc');
+  if (look.single) add(flatten(PROFILE.swingarm), -0.19, -0.1, 'engine');
+  else both(flatten(PROFILE.swingarm), 0.09, 0.15, 'engine');
   bev(flatten(PROFILE.engine), 0.17, 0.9, 'engine');
   add(circle([150, 104], 12, 12), 0.17, 0.19, 'engineHi');
-  add(flatten(PROFILE.muffler), 0.1, 0.24, 'exhaust');
+  if (look.exhaust === 'big') add(flatten(PROFILE.muffler), 0.1, 0.24, 'exhaust');
+  else if (look.exhaust === 'under') add(UNDER_PIPE, -0.12, 0.12, 'exhaust');
+  else add(SIDE_PIPE, 0.1, 0.22, 'exhaust');
+  if (look.belly) bev(BELLY, 0.19, 0.88, 'body2');
   bev(flatten(PROFILE.tank), 0.18, 0.86, 'body');
-  for (const [a, b] of FRAME_LINES) both(tube(a, b, 6), 0.15, 0.19, 'frame');
-  bev(flatten(PROFILE.tail), 0.11, 0.9, 'body');
-  add(flatten(PROFILE.seat), -0.12, 0.12, 'seat');
+  if (look.frame === 'trellis') for (const [a, b] of FRAME_LINES) both(tube(a, b, 6), 0.15, 0.19, 'frame');
+  else if (look.frame === 'spar') both(tube([214, 66], [144, 100], 15), 0.16, 0.2, 'frame');
+  bev(flatten(PROFILE.tail), 0.11, 0.9, 'body', D.tail);
+  add(flatten(PROFILE.seat), -0.12, 0.12, 'seat', D.tail);
+  both(tube(D.tail([146, 82]), D.tail([78, 70]), 4), 0.11, 0.116, 'accent', (q) => q);
   both(tube(FORK_UP[0], FORK_UP[1], 8), 0.07, 0.1, 'fork');
   both(tube(FORK_LOW[0], FORK_LOW[1], 9), 0.07, 0.1, 'forkLow');
   add(flatten(PROFILE.fender), -0.07, 0.07, 'body');
-  bev(flatten(PROFILE.fairing), 0.2, 0.88, 'body');
-  add(flatten(PROFILE.vent), -0.205, 0.205, 'dark');
-  add(flatten(PROFILE.intake), -0.205, 0.205, 'dark');
-  add(flatten(PROFILE.windscreen), -0.12, 0.12, 'glass');
-  add(flatten(PROFILE.headlight), -0.15, 0.15, 'light');
-  both(flatten(PROFILE.mirror), 0.2, 0.26, 'body');
-  both(tube([214, 98], [262, 88], 4), 0.2, 0.208, 'accent');
+  bev(flatten(PROFILE.fairing), 0.2, 0.88, 'body', D.nose);
+  add(flatten(PROFILE.vent), -0.205, 0.205, 'dark', D.nose);
+  add(flatten(PROFILE.intake), -0.205, 0.205, 'dark', D.nose);
+  add(flatten(PROFILE.windscreen), -0.12, 0.12, 'glass', D.nose);
+  add(flatten(PROFILE.headlight), -0.15, 0.15, 'light', D.nose);
+  if (!look.noMirrors) both(flatten(PROFILE.mirror), 0.2, 0.26, 'body', D.nose);
+  if (look.wings) both(WING, 0.2, 0.3, 'body2', D.nose);
+  both(tube([214, 98], [262, 88], 4), 0.2, 0.208, 'accent', D.nose);
   return F;
 }
 
@@ -133,33 +162,44 @@ const BASE_MATS = {
   fork: ['#8a6a10', '#c9a227', '#ffd23f'],
   forkLow: ['#6f7789', '#a2a9b8', '#d5dae3'],
 };
-export const BIKE_COLORS = {
-  h2: { body: ['#0b0c10', '#111318', '#171a20', '#1f232b', '#2d323d', '#6f7789'], frame: ['#2f6f20', '#3f9d3a', '#7ce35b', '#b8f58a'], accent: ['#3f9d3a', '#7ce35b'] },
-  r1: { body: ['#101d4f', '#1a2d7a', '#2747b0', '#3a5fc4', '#7d9cf0'], frame: ['#1a1c22', '#2e323d', '#4b5161'], accent: ['#c2c8d4', '#ffffff'] },
-  ninja500: { body: ['#1f4f12', '#3f8f18', '#5fbf2a', '#86e04a', '#c9f59a'], frame: ['#1a1c22', '#2e323d', '#4b5161'], accent: ['#1a1c22', '#2e323d'] },
-  panigale: { body: ['#4a0a10', '#7a1f2b', '#b81d22', '#e0262c', '#ff8a8a'], frame: ['#7a1f2b', '#b81d22', '#e0262c'], accent: ['#f4f0e6', '#ffffff'] },
-  cbr: { body: ['#4a0a10', '#8f0e14', '#c8141c', '#e8333b', '#ff8c8c'], frame: ['#1a1c22', '#2e323d', '#4b5161'], accent: ['#1d4fc4', '#3a6fe0'] },
-  s1000rr: { body: ['#8f97a8', '#b8c0cc', '#d5dae3', '#f2f4f7', '#ffffff'], frame: ['#1a1c22', '#2e323d', '#4b5161'], accent: ['#1c69d4', '#3a8af0'] },
-  rsv4: { body: ['#0b0b0d', '#18181b', '#26262a', '#3c3c42', '#77777f'], frame: ['#7a1f2b', '#c8141c', '#e8333b'], accent: ['#c8141c', '#e8333b'] },
+// dark -> light ramp from one paint color
+const mix = (hex, f) => {
+  const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255];
+  const out = c.map((v) => Math.round(f <= 1 ? v * f : v + (255 - v) * (f - 1)));
+  return '#' + out.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
 };
+export const ramp = (hex) => [mix(hex, 0.38), mix(hex, 0.6), mix(hex, 0.82), hex, mix(hex, 1.3)];
+const CHROME = ['#0b0c10', '#111318', '#171a20', '#1f232b', '#2d323d', '#6f7789'];
+
+export function materialsFor(look) {
+  return {
+    ...BASE_MATS,
+    body: look.chrome ? CHROME : ramp(look.body),
+    body2: look.chrome ? CHROME : ramp(look.body2 ?? look.body),
+    accent: [mix(look.accent, 0.8), look.accent],
+    frame: ramp(look.frameColor ?? '#2e323d').slice(1, 4),
+    rim: ramp(look.rim ?? '#1a1c22').slice(0, 3),
+  };
+}
 
 const LIGHT = (() => { const l = [0.35, 0.8, 1.0], m = Math.hypot(...l); return l.map((c) => c / m); })();
 const MESHES = new Map();
-const meshFor = (T) => { const seg = T > 24 ? 30 : 18; if (!MESHES.has(seg)) MESHES.set(seg, bikeMesh(seg)); return MESHES.get(seg); };
+const meshFor = (id, look, T) => { const seg = T > 24 ? 30 : 18, k = `${id}|${seg}`; if (!MESHES.has(k)) MESHES.set(k, bikeMesh(look, seg)); return MESHES.get(k); };
 
 /**
- * Render a bike at a heading (radians, 0 = along +x) with T pixels per meter.
+ * Render bike `id` (data/bikes.js) at a heading (radians, 0 = along +x) with T pixels per meter.
  * Returns { c: canvas, ax, ay } where (ax, ay) is the ground point under the bike's center.
  */
-export function renderBike3D(variant, heading, T, { outline = '#120b1c', lift = 0 } = {}) {
-  const mats = { ...BASE_MATS, ...BIKE_COLORS[variant] };
+export function renderBike3D(id, heading, T, { outline = '#120b1c', lift = 0 } = {}) {
+  const look = BIKE[id].look;
+  const mats = materialsFor(look);
   const cs = Math.cos(heading), sn = Math.sin(heading);
   const rot = ([u, v, w]) => [u * cs - v * sn, u * sn + v * cs, w];
   const xf = (q) => { const r = rot(q); r[2] += lift; return r; };
   const proj = ([x, y, z]) => [(x - y) * T, ((x + y) * T) / 2 - z * T, x + y + z];
   const faces = [];
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const f of meshFor(T)) {
+  for (const f of meshFor(id, look, T)) {
     const n = rot(f.n);
     if (n[0] + n[1] + n[2] <= 1e-6) continue; // facing away from the camera
     const pts = f.pts.map((p) => proj(xf(p)));

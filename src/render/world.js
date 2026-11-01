@@ -2,6 +2,7 @@
 // Drawn at half resolution with hard edges, then scaled 2x with crisp pixels.
 import { GLYPH } from './font.js';
 import { renderBike3D } from './bike3d.js';
+import { SPOTS } from '../data/showroom.js';
 
 // The whole lot is drawn once into a big map canvas (1 map pixel = 2 CSS px);
 // the screen is a draggable window onto it.
@@ -139,8 +140,13 @@ function tree(x, y, s = 1) {
 
 // ---------- 3D bikes ----------
 const bikeCache = new Map();
+// old mockup variant names -> roster ids
+const MOCK_ID = { h2: 'ninja-h2', r1: 'yzf-r1', panigale: 'panigale-v2', s1000rr: 's1000rr', ninja500: 'ninja-500', cbr: 'cbr600rr', rsv4: 'rsv4-rr' };
 function bike(v, x, y, deg, lift = 0) {
   if (!populated) return;
+  showBike(MOCK_ID[v] || v, x, y, deg, lift);
+}
+function showBike(v, x, y, deg, lift = 0) {
   const k = `${v}|${deg}|${lift}`;
   if (!bikeCache.has(k)) bikeCache.set(k, renderBike3D(v, (deg * Math.PI) / 180, T, { lift }));
   const s = bikeCache.get(k);
@@ -162,7 +168,7 @@ const ROOMS = [
   { id: 'rest', x0: -6, y0: -4, x1: 0, y1: 0 },
 ];
 const inRoom = (x, y) => ROOMS.find((r) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1);
-const DOORS = new Set(['x:10:6', 'x:10:7', 'y:0:7', 'y:0:2', 'y:14:2', 'y:14:8', 'x:0:12', 'x:0:-3', 'x:13:17', 'x:13:18', 'x:6:23', 'x:6:24', 'y:19:-2', 'y:0:-2']);
+const DOORS = new Set(['x:10:6', 'x:10:7', 'y:0:8', 'y:0:2', 'y:14:2', 'y:14:8', 'x:0:12', 'x:0:-3', 'x:13:17', 'x:13:18', 'x:6:23', 'x:6:24', 'y:19:-2', 'y:0:-2']);
 const GLASS = (k) => /^x:10:\d+$/.test(k) || /^x:11:-\d$/.test(k);
 const FLOORS = {
   show: (x, y) => ((x + y) % 2 ? C.tile : C.tile2),
@@ -248,29 +254,31 @@ export async function renderDealership(canvas, opts = {}) {
   walls(L);
   const plat = (x, y, w, d) => box(x, y, 0, w, d, 0.1, [C.white, C.intR, '#b8c1d4']);
 
-  // ---- showroom (14x10): wide aisles, bikes spaced out ----
-  add(1.4, () => plat(1.0, 0.4, 12.0, 1.4));
-  for (const [v, x] of [['r1', 2.8], ['panigale', 7.0], ['s1000rr', 11.2]]) add(x + 1.1, () => bike(v, x, 1.1, -25, 0.1));
-  add(5.0, () => plat(0.4, 3.6, 1.4, 3.0));
-  add(6.2, () => bike('ninja500', 1.1, 5.1, 65, 0.1));
-  add(11, () => {
-    ellipse(6.0, 5.0, 1.8, 0, '#5a4878');
-    ellipse(6.0, 5.0, 1.8, 0.12, '#c2b6d6');
-    ellipse(6.0, 5.0, 1.4, 0.12, '#d5dae3');
-    bike('h2', 6.0, 5.0, -20, 0.12);
+  // ---- showroom (14x10): display spots driven by the player's inventory ----
+  const cap = opts.capacity ?? 0;
+  const onSpot = new Map((opts.display || []).map((d) => [d.spot, d]));
+  SPOTS.slice(0, cap).forEach((sp) => {
+    const shown = onSpot.get(sp.id);
+    const sel = opts.selected && shown && shown.uid === opts.selected;
+    if (sp.kind === 'feature') {
+      add(sp.x + sp.y, () => {
+        ellipse(sp.x, sp.y, 1.8, 0, '#5a4878');
+        ellipse(sp.x, sp.y, 1.8, 0.12, sel ? '#ffd23f' : '#c2b6d6');
+        ellipse(sp.x, sp.y, 1.4, 0.12, '#d5dae3');
+        if (shown) showBike(shown.model, sp.x, sp.y, sp.h, 0.12);
+      });
+    } else {
+      const alongX = Math.abs(Math.cos((sp.h * Math.PI) / 180)) >= Math.abs(Math.sin((sp.h * Math.PI) / 180));
+      const [w, d] = alongX ? [2.5, 1.1] : [1.1, 2.5];
+      add(sp.x + sp.y + 0.6, () => {
+        box(sp.x - w / 2, sp.y - d / 2, 0, w, d, 0.1, sel ? ['#fff1a8', '#ffd23f', '#e09a00'] : sp.kind === 'window' ? ['#e6f4ff', '#bcd6ea', '#9fbcd4'] : [C.white, C.intR, '#b8c1d4']);
+        if (shown) showBike(shown.model, sp.x, sp.y, sp.h, 0.1);
+      });
+    }
   });
-  if (populated) add(15.9, () => { ellipse(10.8, 5.4, 1.3, 0, '#5a4878'); ellipse(10.8, 5.4, 1.3, 0.1, '#e6e9ef'); bike('cbr', 10.8, 5.4, 200, 0.1); });
-  add(19.2, () => { box(10.6, 8.2, 0, 2.0, 0.6, 0.45, ['#5ab0e8', '#3a5fc4', '#1d2d6b'], '#a6e1ff'); box(11.3, 8.25, 0.45, 0.45, 0.08, 0.32, [C.ink, '#2e323d', C.ink]); });
-  add(19.0, () => person(11.6, 7.8, { shirt: '#ffd23f', hair: '#8a4a23' }));
-  add(10.0, () => box(1.0, 8.6, 0, 2.6, 0.6, 0.35, tri('#e04a3a')));
-  add(10.4, () => person(2.0, 8.9, { shirt: '#c2b6d6', hair: '#3d2b56', sit: true }));
-  add(11.4, () => person(4.0, 7.4, { shirt: '#3a5fc4', skin: '#8a4a23', hair: C.ink }));
-  add(12.4, () => person(4.6, 7.8, { shirt: C.white, tie: '#e04a3a', pants: '#2e323d' }));
-  add(11.4, () => person(8.8, 2.6, { shirt: '#7ce35b', hair: '#ffd23f' }));
-  add(16.4, () => person(7.0, 9.4, { shirt: '#e04a3a', hair: '#3d2b56', skin: '#c27a3a' }));
-  add(16.0, () => trash(12.4, 3.6));
-  add(16.6, () => person(13.0, 3.6, { shirt: '#2a8f9a', hair: '#1d2d6b', mop: true }));
-  for (const [x, y] of [[13.4, 0.6], [0.6, 9.4], [13.4, 9.4], [0.6, 1.6]]) add(x + y, () => plantPot(x, y));
+  add(19.0, () => { box(12.6, 5.6, 0, 0.6, 2.2, 0.45, ['#5ab0e8', '#3a5fc4', '#1d2d6b'], '#a6e1ff'); box(12.65, 6.4, 0.45, 0.08, 0.45, 0.32, [C.ink, '#2e323d', C.ink]); });
+  add(19.6, () => person(13.5, 6.7, { shirt: '#ffd23f', hair: '#8a4a23' }));
+  for (const [x, y] of [[13.4, 0.6], [0.6, 9.4], [13.4, 9.4], [0.6, 2.4]]) add(x + y, () => plantPot(x, y));
   // ---- parts & gear (6x6) ----
   add(14.6, () => {
     box(14.4, 0.2, 0, 5.2, 0.5, 1.0, tri('#a8652e'));
@@ -358,4 +366,11 @@ export async function renderDealership(canvas, opts = {}) {
   { const [sx, sy] = P(5.0, 9.6, 0.1); const s = '9/12', w = textW(s) + 9; rect(C.ink, sx - 2, sy - 4, w, 9); rect('#2a1d3d', sx - 1, sy - 3, w - 2, 7); rect('#7ce35b', sx, sy - 2, 3, 2); rect(C.ink, sx, sy, 1, 1); rect(C.ink, sx + 2, sy, 1, 1); text(s, sx + 5, sy - 2, C.white); }
   { const [sx, sy] = P(17.0, 7.5, 1.9); rect(C.ink, sx - 3, sy - 3, 7, 7); rect('#ffd23f', sx - 2, sy - 2, 5, 5); rect('#c27a3a', sx, sy - 1, 1, 3); }
   return canvas;
+}
+
+/** Which display spot (if any) is under a map-pixel point. Front-most first. */
+export function spotAt(mx, my, cap) {
+  const list = SPOTS.slice(0, cap).map((s) => ({ s, p: P(s.x, s.y) })).sort((a, b) => b.p[1] - a.p[1]);
+  for (const { s, p } of list) if (Math.abs(mx - p[0]) < 24 && my > p[1] - 30 && my < p[1] + 9) return s.id;
+  return null;
 }

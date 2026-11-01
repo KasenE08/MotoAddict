@@ -44,15 +44,15 @@ describe('engine: shared balance + passive income', () => {
   it('starts with one owned location and starting cash', () => {
     const g = newGame(at(2026, 3, 2, 9));
     expect(g.locations.filter((l) => l.owned)).toHaveLength(1);
-    expect(g.cash).toBe(15000);
+    expect(g.cash).toBe(20000);
   });
   it('earns only during open hours while playing', () => {
     const g = newGame(at(2026, 3, 2, 8));
     const rate = totalRate(g);
     advance(g, at(2026, 3, 2, 8, 30));
-    expect(g.cash).toBe(15000);
+    expect(g.cash).toBe(20000);
     advance(g, at(2026, 3, 2, 10));
-    expect(g.cash).toBeCloseTo(15000 + rate * 3600, 5);
+    expect(g.cash).toBeCloseTo(20000 + rate * 3600, 5);
   });
   it('caps offline earnings at 4 open hours by default, 10 when upgraded', () => {
     const g = newGame(at(2026, 3, 2, 9));
@@ -94,9 +94,9 @@ describe('engine: shared balance + passive income', () => {
   });
   it('spends only what you have', () => {
     const g = newGame(0);
-    expect(spend(g, 20000)).toBe(false);
+    expect(spend(g, 25000)).toBe(false);
     expect(spend(g, 5000)).toBe(true);
-    expect(g.cash).toBe(10000);
+    expect(g.cash).toBe(15000);
   });
 });
 
@@ -110,7 +110,7 @@ describe('save codes', () => {
   it('tolerates whitespace and line breaks from pasting', () => {
     const code = encode(newGame(1));
     const messy = `  ${code.slice(0, 20)}\n${code.slice(20)}  `;
-    expect(decode(messy).cash).toBe(15000);
+    expect(decode(messy).cash).toBe(20000);
   });
   it('rejects junk, truncated and tampered codes with a clear message', () => {
     const code = encode(newGame(1));
@@ -125,10 +125,17 @@ describe('save codes', () => {
   });
   it('upgrades old-format saves instead of breaking them', () => {
     const old = { createdAt: 1, lastTick: 1, money: 777 }; // pretend v0 save
-    expect(migrate(old)).toMatchObject({ v: 1, cash: 777 });
+    expect(migrate(old)).toMatchObject({ v: 2, cash: 777, orders: [] });
+  });
+  it('upgrades a Phase 2 (v1) save with showroom fields', () => {
+    const v1 = { v: 1, createdAt: 1, lastTick: 1, cash: 5000, locations: [{ id: 1, owned: true, earned: 3 }] };
+    const up = migrate(v1);
+    expect(up.v).toBe(2);
+    expect(up.locations[0]).toMatchObject({ owned: true, earned: 3, bikes: [], capacityBonus: 0 });
+    expect(up.nextUid).toBe(1);
   });
   it('fills missing fields with defaults', () => {
-    const g = migrate({ v: 1, cash: 5, lastTick: 1 });
+    const g = migrate({ v: 2, cash: 5, lastTick: 1 });
     const full = decode(encode(g));
     expect(full.locations).toHaveLength(5);
     expect(full.offlineCapHours).toBe(4);
@@ -141,7 +148,7 @@ describe('save codes', () => {
     g.cash = 999;
     store(g, ls);
     mem.set('motoaddict.save', 'garbage');
-    expect(load(2, ls).cash).toBe(15000);
+    expect(load(2, ls).cash).toBe(20000);
   });
   it('handles large saves', () => {
     const g = newGame(1);
