@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MotoAddict · Pixel Style</title>
+<meta name="theme-color" content="#14161c">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="eyebrow">MotoAddict · Phase 1 · Chosen style</div>
+    <h1>Pixel art, top-down tycoon camera</h1>
+    <p>The main dealership at Location 3 (2:47 PM, open), seen from the same angled overhead camera as Prison Empire Tycoon, plus the Kawasaki Ninja H2 supplier card. <a href="../">See all 5 original styles</a></p>
+  </header>
+  <div class="grid">
+    <div class="col">
+      <h3>Main dealership screen</h3>
+      <div class="phone"><div class="screen" id="screen"></div></div>
+    </div>
+    <div class="col">
+      <h3>Bike card · Kawasaki Ninja H2</h3>
+      <div class="card" id="card"></div>
+      <h3>What's on the screen</h3>
+      <ul class="legend">
+        <li><b>Showroom</b> (center): bikes on display, the H2 on a turntable, a salesman with a customer who wants to haggle (!), receptionist, janitor cleaning a trash pile.</li>
+        <li><b>Rooms around it</b>: parts &amp; gear shop, customer lounge, finance office, restrooms, security office, storage, service bay (lifts), detailing bay.</li>
+        <li><b>Outside</b>: outdoor display, parking lot, landscaping, and an empty plot to expand onto.</li>
+        <li><b>HUD</b>: cash + income rate, rating + cleanliness, staff and showroom capacity, real-time clock with OPEN/CLOSED, today's earnings, location switcher, challenges, stats, achievements, a time-limited trade-in offer, supplier, upgrades, overnight deliveries, staff, display arranging, save code and settings.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+<script type="module">
+  await document.fonts.load('16px "Jersey 10"').catch(() => {});
+  const { buildPhone, buildCard } = await import('../js/pixelui.js');
+  await Promise.all([buildPhone(document.getElementById('screen')), buildCard(document.getElementById('card'))]);
+  const ro = new ResizeObserver((es) => es.forEach((e) => e.target.style.setProperty('--k', e.contentRect.width / 390)));
+  ro.observe(document.querySelector('.phone'));
+  document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

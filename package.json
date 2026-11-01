@@ -10,13 +10,14 @@
     "shots": "node scripts/screenshots.js"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
-    "vitest": "^3.2.4",
-    "@fontsource/fredoka": "^5.2.8",
-    "@fontsource/poppins": "^5.2.7",
-    "@fontsource/pixelify-sans": "^5.2.7",
-    "@fontsource/orbitron": "^5.2.8",
     "@fontsource/bangers": "^5.2.8",
-    "@fontsource/comic-neue": "^5.2.6"
+    "@fontsource/comic-neue": "^5.2.6",
+    "@fontsource/fredoka": "^5.2.8",
+    "@fontsource/jersey-10": "^5.3.0",
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/pixelify-sans": "^5.2.7",
+    "@fontsource/poppins": "^5.2.7",
+    "@playwright/test": "1.63.0",
+    "vitest": "^3.2.4"
   }
 }

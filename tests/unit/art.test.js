@@ -48,3 +48,17 @@ describe('vector styles', () => {
     expect([iso, flat, neon, comic].map((s) => s.num).sort()).toEqual([1, 2, 4, 5]);
   });
 });
+
+describe('pixel iso projection', async () => {
+  const { P, textW } = await import('../../preview/js/pixeliso.js');
+  it('uses a 2:1 isometric grid with whole-pixel vertices', () => {
+    const [x0, y0] = P(0, 0), [x1, y1] = P(1, 0), [x2, y2] = P(0, 1);
+    expect([x1 - x0, y1 - y0]).toEqual([12, 6]);
+    expect([x2 - x0, y2 - y0]).toEqual([-12, 6]);
+    expect(P(0, 0, 1)[1]).toBe(y0 - 12);
+  });
+  it('measures pixel-font text width', () => {
+    expect(textW('MOTOADDICT')).toBe(41);
+    expect(textW('+$32,700')).toBeGreaterThan(20);
+  });
+});

@@ -19,7 +19,7 @@ export function nearest(r, g, b, pal = PAL_RGB) {
   return pal[best];
 }
 
-function rasterSVG(svg, w, h) {
+export function rasterSVG(svg, w, h) {
   return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => {
@@ -34,7 +34,7 @@ function rasterSVG(svg, w, h) {
   });
 }
 
-function quantize(c, outline = '#120b1c') {
+export function quantize(c, outline = '#120b1c') {
   const x = c.getContext('2d', { willReadFrequently: true });
   const d = x.getImageData(0, 0, c.width, c.height);
   const a = d.data;
@@ -59,7 +59,7 @@ function quantize(c, outline = '#120b1c') {
   return c;
 }
 
-const BASE = {
+export const BASE = {
   tire: '#1a1c22', rim: '#4b5161', rimInner: '#2e323d', hub: '#a2a9b8', disc: '#a2a9b8', caliper: '#ffd23f',
   swingarm: '#2e323d', engine: '#4b5161', engineDetail: '#6f7789', seat: '#1a1c22', fork: '#ffd23f', forkLow: '#a2a9b8',
   dark: '#120b1c', glass: '#5a4878', light: '#fff1a8', exhaust: '#a2a9b8', exhaustHi: '#ffffff',
@@ -68,13 +68,13 @@ const bikeSrc = (v) => bikeSVG(paintBike({ ...BASE, ...VARIANTS[v] }, { badge: f
   .replace('<svg ', '<svg xmlns:x="x" ');
 
 // Pixel bike sprite whose visible bike is ~`px` pixels long.
-const bikeSprite = async (v, px) => {
+export const bikeSprite = async (v, px) => {
   const w = Math.round((px * 320) / 252), h = Math.round((w * 190) / 320);
   return quantize(await rasterSVG(bikeSrc(v), w, h));
 };
 
 // Tiny 3x5 pixel font (M and N are wider).
-const GLYPH = {
+export const GLYPH = {
   M: ['#...#', '##.##', '#.#.#', '#...#', '#...#'], N: ['#..#', '##.#', '#.##', '#..#', '#..#'],
   O: ['###', '#.#', '#.#', '#.#', '###'], T: ['###', '.#.', '.#.', '.#.', '.#.'], A: ['.#.', '#.#', '###', '#.#', '#.#'],
   D: ['##.', '#.#', '#.#', '#.#', '##.'], I: ['###', '.#.', '.#.', '.#.', '###'], C: ['.##', '#..', '#..', '#..', '.##'],
@@ -82,7 +82,13 @@ const GLYPH = {
   1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['###', '..#', '###', '#..', '###'], 4: ['#.#', '#.#', '###', '..#', '..#'], 5: ['###', '#..', '###', '..#', '###'],
   6: ['###', '#..', '###', '#.#', '###'], 7: ['###', '..#', '.#.', '.#.', '.#.'], 8: ['###', '#.#', '###', '#.#', '###'], 9: ['###', '#.#', '###', '..#', '###'], 3: ['###', '..#', '.##', '..#', '###'], 0: ['###', '#.#', '#.#', '#.#', '###'],
   '?': ['##.', '..#', '.#.', '...', '.#.'], '+': ['...', '.#.', '###', '.#.', '...'], $: ['.##', '##.', '.#.', '.##', '##.'],
-  ',': ['..', '..', '..', '.#', '#.'], ' ': ['..', '..', '..', '..', '..'],
+  ',': ['..', '..', '..', '.#', '#.'],
+  B: ['##.', '#.#', '##.', '#.#', '##.'], F: ['###', '#..', '##.', '#..', '#..'], G: ['.##', '#..', '#.#', '#.#', '.##'],
+  H: ['#.#', '#.#', '###', '#.#', '#.#'], J: ['..#', '..#', '..#', '#.#', '.#.'], K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+  L: ['#..', '#..', '#..', '#..', '###'], Q: ['.#.', '#.#', '#.#', '##.', '.##'], S: ['.##', '#..', '.#.', '..#', '##.'],
+  U: ['#.#', '#.#', '#.#', '#.#', '###'], V: ['#.#', '#.#', '#.#', '#.#', '.#.'], W: ['#...#', '#...#', '#.#.#', '##.##', '#...#'],
+  X: ['#.#', '#.#', '.#.', '#.#', '#.#'], Y: ['#.#', '#.#', '.#.', '.#.', '.#.'], Z: ['###', '..#', '.#.', '#..', '###'],
+  '/': ['..#', '..#', '.#.', '#..', '#..'], '!': ['#', '#', '#', '.', '#'], '.': ['.', '.', '.', '.', '#'], ':': ['.', '#', '.', '#', '.'], '-': ['...', '...', '###', '...', '...'], ' ': ['..', '..', '..', '..', '..'],
 };
 function text(x, str, px, py, color, shadow) {
   let cx = px;
