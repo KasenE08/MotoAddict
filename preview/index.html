@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MotoAddict · Art Styles</title>
+<meta name="theme-color" content="#14161c">
+<link rel="stylesheet" href="preview.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="eyebrow">MotoAddict · Phase 1</div>
+    <h1>Pick an art style</h1>
+    <p>Five directions for the same game. Each shows the main dealership screen (Location 3, mid-afternoon, open for business), the Kawasaki Ninja H2 bike card, and the app icon. Reply with the number you want — or mix (e.g. "style 1 with style 4's UI").</p>
+    <nav class="jump">
+      <a href="#style-1">1 · Isometric</a><a href="#style-2">2 · Flat vector</a><a href="#style-3">3 · Pixel</a><a href="#style-4">4 · Neon</a><a href="#style-5">5 · Comic</a>
+    </nav>
+  </header>
+  <div id="styles"></div>
+  <footer class="foot">Mockups only — nothing here is playable yet. Fonts are bundled, so this page also works offline once loaded.</footer>
+</main>
+<script type="module">
+  const faces = ['Fredoka', 'Poppins', 'Pixelify Sans', 'Orbitron', 'Bangers', 'Comic Neue'];
+  await Promise.all(faces.flatMap((f) => [document.fonts.load(`400 16px "${f}"`), document.fonts.load(`700 16px "${f}"`)])).catch(() => {});
+  await import('./js/main.js');
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "motoaddict",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node scripts/serve.js",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "shots": "node scripts/screenshots.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "vitest": "^3.2.4",
+    "@fontsource/fredoka": "^5.2.8",
+    "@fontsource/poppins": "^5.2.7",
+    "@fontsource/pixelify-sans": "^5.2.7",
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/bangers": "^5.2.8",
+    "@fontsource/comic-neue": "^5.2.6"
+  }
+}
