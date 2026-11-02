@@ -1,4 +1,4 @@
-// Captures review screenshots into ./shots
+// Captures review screenshots into ./shots (latest phase).
 import { chromium } from '@playwright/test';
 import { start } from './serve.js';
 import fs from 'node:fs';
@@ -9,57 +9,59 @@ const server = await start(4174);
 const URL = 'http://localhost:4174';
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, timezoneId: 'America/New_York', hasTouch: true });
+const shot = (p, name) => p.screenshot({ path: `shots/${name}.png`, animations: 'disabled' });
+const stock = () => {
+  const g = window.__game.state;
+  ['ninja-125', 'yzf-r3', 'ninja-500'].forEach((m, k) => g.locations[0].bikes.push({ uid: 100 + k, model: m, spot: ['F', 'B2', 'B3', 'B1'][k], condition: 100, detailed: false, paid: 3000, at: 0, source: 'supplier', reserved: null }));
+  g.rng = 2024;
+  return window.__game.refreshWorld();
+};
+
 const p = await ctx.newPage();
-await p.clock.install({ time: new Date('2026-11-02T10:00:00-05:00') });
+await p.clock.install({ time: new Date('2026-11-02T11:20:00-05:00') });
 await p.goto(URL + '/');
 await p.waitForSelector('body[data-ready]');
-
-// supplier: browse + order 4 entry-level bikes
-await p.locator('#btnSupplier').click();
-await p.waitForTimeout(300);
-await p.screenshot({ path: 'shots/p3-1-supplier.png' });
-for (const id of ['g310rr', 'ninja-125', 'yzf-r3', 'ninja-500']) await p.locator(`button.order[data-id="${id}"]`).click();
-await p.locator('.chip[data-brand="Kawasaki"]').click();
-await p.waitForTimeout(300);
-await p.screenshot({ path: 'shots/p3-2-supplier-kawasaki-ordered.png' });
-await p.locator('.m-x').click();
-await p.waitForTimeout(200);
-await p.screenshot({ path: 'shots/p3-3-hud-deliveries-pending.png' });
-// overnight delivery
-await p.clock.setFixedTime(new Date('2026-11-03T02:00:20-05:00'));
-await p.waitForTimeout(2600);
-await p.screenshot({ path: 'shots/p3-4-truck-arrived-night.png' });
-// arrange while closed
-await p.locator('#btnShowroom').click();
-await p.locator('.spot').nth(1).click();
-await p.waitForTimeout(200);
-await p.screenshot({ path: 'shots/p3-5-arrange.png' });
-await p.locator('.spot').nth(0).click();
-await p.locator('.m-x').click();
-// next morning, open for business
-await p.clock.setFixedTime(new Date('2026-11-03T09:30:00-05:00'));
-await p.waitForTimeout(2600);
-await p.screenshot({ path: 'shots/p3-6-showroom-open.png' });
-// zoomed in on the turntable
-await p.evaluate(() => { window.__cam.zoomTo(4); window.__cam.lookAt(452 + 1.2 * 12, 144 + 11.2 * 6 - 8); });
-await p.waitForTimeout(300);
-await p.screenshot({ path: 'shots/p3-7-zoomed-in.png' });
-await p.evaluate(() => window.__cam.zoomTo(1));
-await p.waitForTimeout(300);
-await p.screenshot({ path: 'shots/p3-8-zoomed-out.png' });
-// bike details
+await p.evaluate(stock);
+// a busy moment: someone browsing with you, one waiting, one walking in, one haggling
+await p.evaluate(() => {
+  const g = window.__game.state, now = Date.now(), s = (g.locations[0].sim = { nextArrival: now + 3600e3, nextTradeIn: now + 3600e3, customers: [], nextId: 10 });
+  const r3 = g.locations[0].bikes.find((b) => b.model === 'yzf-r3');
+  r3.reserved = 1;
+  s.customers.push({ id: 1, budget: 9000, brand: null, arrivedAt: now - 90000, servedAt: now - 60000, phase: 'haggle', bikeUid: r3.uid, offer: 4900, list: 5499, deadline: now + 22000, round: 1, look: 1234567 });
+  s.customers.push({ id: 2, budget: 6000, brand: null, arrivedAt: now - 70000, servedAt: now - 40000, decideAt: now + 9e5, phase: 'browse', look: 7654321 });
+  s.customers.push({ id: 3, budget: 7000, brand: null, arrivedAt: now - 20000, phase: 'queue', giveUpAt: now + 3e5, look: 42424242 });
+  s.customers.push({ id: 4, budget: 7000, brand: null, arrivedAt: now - 1200, phase: 'queue', giveUpAt: now + 3e5, look: 99887766 });
+  g.today.earned = 6850; g.today.key = '2026-11-02';
+  g.tradeIn = { loc: 0, model: 'yzf-r7', condition: 72, cost: 4280, at: now, expiresAt: now + 161000 };
+});
+await p.clock.runFor(2500);
+await shot(p, 'p4-1-customers-haggle');
+await p.evaluate(() => window.__cam.zoomTo(3));
+await p.clock.runFor(300);
+await shot(p, 'p4-2-zoomed-customers');
 await p.evaluate(() => window.__cam.zoomTo(2));
-await p.evaluate(() => window.__cam.lookAt(452 + 1.2 * 12 + 40, 144 + 11.2 * 6));
-const pos = await p.evaluate(() => window.__cam.pos);
-await p.mouse.click(pos.x + (452 + 1.2 * 12) * pos.s, pos.y + (144 + 11.2 * 6 - 6) * pos.s);
-await p.waitForTimeout(400);
-await p.screenshot({ path: 'shots/p3-9-bike-card.png' });
+await p.getByRole('button', { name: /Counter/ }).click();
+await p.clock.runFor(300);
+await shot(p, 'p4-3-after-counter');
+await p.locator('#tradein').click();
+await p.clock.runFor(300);
+await shot(p, 'p4-4-tradein-offer');
+await p.getByRole('button', { name: /Buy for/ }).click();
+await p.clock.runFor(400);
+await p.locator('#btnShowroom').click();
+await p.clock.runFor(300);
+await shot(p, 'p4-5-showroom-with-tradein');
+await p.locator('.m-x').click();
+await p.evaluate(() => window.__game.save());
+await p.close();
 
-// full roster page
-const r = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-await r.goto(URL + '/preview/roster.html');
-await r.waitForSelector('body[data-ready]');
-await r.screenshot({ path: 'shots/p3-0-roster.png', fullPage: true });
+// welcome back after a day away
+const q = await ctx.newPage();
+await q.clock.install({ time: new Date('2026-11-03T13:30:00-05:00') });
+await q.goto(URL + '/');
+await q.waitForSelector('body[data-ready]');
+await q.clock.runFor(300);
+await shot(q, 'p4-6-welcome-back');
 await browser.close();
 server.close();
 console.log('saved to shots/');

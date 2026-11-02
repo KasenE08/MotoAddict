@@ -9,6 +9,7 @@ Motorcycle dealership idle tycoon — a free pixel-art PWA for iPhone (landscape
 
 ## Status
 - Phase 2: core engine — shared balance, real-world clock, open 9 AM–6 PM, passive income (open hours only), offline earnings capped at 4h of open time, autosave with backup, versioned copy-paste save codes, day/night tint, drag-to-pan map.
+- Phase 4: customers (arrivals, budgets by location wealth, brand loyalty), salesperson queue + walk-outs, buying, haggling (accept/counter/refuse, last offers, auto-accept while away), gear sales, limited-time trade-ins (used bikes), seeded simulation shared by live play and offline catch-up.
 - Phase 3: 31-bike roster (real specs/MSRP, per-model 3D pixel art), supplier ordering at 80% of MSRP, overnight 2 AM deliveries, display spots (turntable / window / floor), arranging while closed, capacity per location, pinch zoom.
 
 ## Develop
@@ -24,6 +25,6 @@ No build step: plain ES modules served as static files.
 ## Code map
 - `src/config.js` — balance constants, locations
 - `src/data/` — bike roster (`bikes.js`), showroom display spots (`showroom.js`)
-- `src/core/` — pure logic: `time.js` (opening hours), `engine.js` (state, income, offline catch-up, day hooks), `save.js` (save codes, migrations, autosave), `format.js`, `showroom.js` (supplier, deliveries, capacity, arranging)
+- `src/core/` — pure logic: `time.js` (opening hours), `engine.js` (state, income, offline catch-up, day hooks), `save.js` (save codes, migrations, autosave), `format.js`, `showroom.js` (supplier, deliveries, capacity, arranging), `sales.js` (customers, sales, haggling, trade-ins), `rng.js` (seeded randomness)
 - `src/render/` — isometric pixel world, 3D bike renderer, pixel font
 - `src/ui/` — HUD, camera, modals, icons, styles

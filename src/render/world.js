@@ -12,6 +12,7 @@ export const P = (x, y, z = 0) => [Math.round(OX + (x - y) * T), Math.round(OY +
 /** Map-pixel position of a tile point (used to aim the camera). */
 export const toMap = (x, y, z = 0) => P(x, y, z);
 let populated = true;
+let glassCtx = null; // showroom front glass, drawn on its own layer above customers
 
 // ---------- low-level pixel drawing ----------
 let ctx;
@@ -105,15 +106,16 @@ function person(x, y, opts = {}) {
   if (!populated) return;
   personDraw(x, y, opts);
 }
-function personDraw(x, y, { shirt, pants = '#2e323d', skin = '#e8b06a', hair = '#3d2b56', tie, mop, sit, hat } = {}) {
+function personDraw(x, y, { shirt, pants = '#2e323d', skin = '#e8b06a', hair = '#3d2b56', tie, mop, sit, hat, step = 0 } = {}) {
   ellipse(x, y, 0.28, 0, C.shadow);
   if (sit) {
     box(x - 0.14, y - 0.12, 0.42, 0.11, 0.42, 0.12, tri(pants));
     box(x + 0.03, y - 0.12, 0.42, 0.11, 0.42, 0.12, tri(pants));
     box(x - 0.17, y - 0.12, 0.5, 0.34, 0.2, 0.52, tri(shirt));
   } else {
-    box(x - 0.14, y - 0.06, 0, 0.11, 0.12, 0.8, tri(pants));
-    box(x + 0.03, y - 0.06, 0, 0.11, 0.12, 0.8, tri(pants));
+    const l1 = step === 1 ? 0.08 : 0, l2 = step === 2 ? 0.08 : 0;
+    box(x - 0.14, y - 0.06, l1, 0.11, 0.12, 0.8 - l1, tri(pants));
+    box(x + 0.03, y - 0.06, l2, 0.11, 0.12, 0.8 - l2, tri(pants));
     box(x - 0.18, y - 0.1, 0.78, 0.36, 0.2, 0.55, tri(shirt));
   }
   const z0 = sit ? 0.5 : 0.78;
@@ -228,7 +230,10 @@ function walls(list) {
       const inside = inRoom(aa + 0.5, cc + 0.5);
       const pal = inside ? [C.intT, C.intL, C.intR] : [C.extT, C.extL, C.extR];
       list.push({ d: aa + 0.5 + cc, f: () => {
-        if (GLASS(k)) { box(aa, cc - t / 2, 0, 1, t, 0.2, pal); box(aa, cc - t / 2, 0.2, 1, t, h - 0.2, [C.intT, C.glass, C.glassR]); line(P(aa + 0.2, cc + 0.15, 0.4), P(aa + 0.5, cc + 0.15, 0.85), 'rgba(255,255,255,0.8)'); }
+        if (GLASS(k)) {
+          const draw = () => { box(aa, cc - t / 2, 0, 1, t, 0.2, pal); box(aa, cc - t / 2, 0.2, 1, t, h - 0.2, [C.intT, C.glass, C.glassR]); line(P(aa + 0.2, cc + 0.15, 0.4), P(aa + 0.5, cc + 0.15, 0.85), 'rgba(255,255,255,0.8)'); };
+          if (glassCtx && cc === 10) { const prev = ctx; ctx = glassCtx; draw(); ctx = prev; } else draw();
+        }
         else box(aa, cc - t / 2, 0, 1, t, h, pal, inside ? null : '#e2a050');
       } });
     } else {
@@ -245,6 +250,8 @@ const trash = (x, y) => { if (!populated) return; const [sx, sy] = P(x, y); rect
 export async function renderDealership(canvas, opts = {}) {
   populated = opts.populated !== false;
   canvas.width = W; canvas.height = H;
+  glassCtx = null;
+  if (opts.glass) { opts.glass.width = W; opts.glass.height = H; glassCtx = opts.glass.getContext('2d'); glassCtx.imageSmoothingEnabled = false; }
   ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ground();
@@ -373,4 +380,34 @@ export function spotAt(mx, my, cap) {
   const list = SPOTS.slice(0, cap).map((s) => ({ s, p: P(s.x, s.y) })).sort((a, b) => b.p[1] - a.p[1]);
   for (const { s, p } of list) if (Math.abs(mx - p[0]) < 24 && my > p[1] - 30 && my < p[1] + 9) return s.id;
   return null;
+}
+
+/**
+ * Draw people onto a transparent layer. people: [{x, y, look:{shirt, pants, skin, hair, tie, hat}, step, bubble}]
+ */
+export function drawPeople(canvas, people) {
+  if (canvas.width !== W) { canvas.width = W; canvas.height = H; }
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, W, H);
+  const prev = ctx;
+  ctx = c;
+  for (const p of [...people].sort((a, b) => a.x + a.y - (b.x + b.y))) {
+    personDraw(p.x, p.y, { ...p.look, step: p.step });
+    if (p.bubble) bubble(p.x, p.y, p.bubble);
+  }
+  ctx = prev;
+}
+
+function bubble(x, y, kind) {
+  const [sx, sy0] = P(x, y, 2.05);
+  const sy = sy0 - 2;
+  if (kind === '!') {
+    rect(C.ink, sx - 4, sy - 10, 9, 11); rect(C.white, sx - 3, sy - 9, 7, 9);
+    rect('#e04a3a', sx, sy - 8, 1, 5); rect('#e04a3a', sx, sy - 2, 1, 1); rect(C.ink, sx - 1, sy + 1, 2, 2);
+  } else if (kind === '...') {
+    rect(C.ink, sx - 6, sy - 7, 13, 8); rect(C.white, sx - 5, sy - 6, 11, 6);
+    for (const dx of [-3, 0, 3]) rect(C.ink, sx + dx, sy - 3, 1, 1);
+  } else if (kind === '$') {
+    rect(C.ink, sx - 4, sy - 9, 9, 9); rect('#ffd23f', sx - 3, sy - 8, 7, 7); rect('#a8652e', sx, sy - 7, 1, 5); rect('#a8652e', sx - 1, sy - 6, 3, 1); rect('#a8652e', sx - 1, sy - 4, 3, 1);
+  }
 }

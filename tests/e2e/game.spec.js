@@ -10,22 +10,19 @@ const boot = async (page, time) => {
 };
 const cash = (page) => page.evaluate(() => window.__game.state.cash);
 
-test('earns passive income during open hours, shown live in the HUD', async ({ page }) => {
+test("open hours: today's earnings in the HUD; nothing is earned while closed", async ({ page }) => {
   await boot(page, '2026-11-02T10:00:00-05:00');
   await expect(page.locator('#openTag')).toHaveText('OPEN');
   await expect(page.locator('#cash')).toHaveText('$20,000');
-  await expect(page.locator('#rate')).toHaveText('+$10/min');
-  await page.clock.runFor(60_000);
-  expect(await cash(page)).toBeCloseTo(20010, 0);
-  await expect(page.locator('#cash')).toHaveText('$20,010');
+  await expect(page.locator('#rate')).toHaveText('today +$0');
 });
 
 test('earns nothing while closed, and the clock shows CLOSED', async ({ page }) => {
   await boot(page, '2026-11-02T20:00:00-05:00');
   await expect(page.locator('#openTag')).toContainText('CLOSED');
-  await expect(page.locator('#rate')).toHaveText('closed');
-  await page.clock.runFor(10 * 60_000);
+  await page.clock.runFor(2 * 60_000);
   expect(await cash(page)).toBe(20000);
+  expect((await page.evaluate(() => window.__game.state.stats.customers))).toBe(0);
   // night tint is on
   expect(Number(await page.locator('#night').evaluate((e) => e.style.opacity))).toBeGreaterThan(0.5);
 });
@@ -40,9 +37,16 @@ test('opens at 9:00 and closes at 18:00 on the real clock', async ({ page }) => 
   await expect(page.locator('#openTag')).toContainText('CLOSED');
 });
 
+const stockUp = () => {
+  const g = window.__game.state;
+  ['ninja-125', 'yzf-r3', 'ninja-500', 'g310rr'].forEach((m, k) => g.locations[0].bikes.push({ uid: 100 + k, model: m, spot: ['F', 'B2', 'B3', 'B1'][k], condition: 100, detailed: false, paid: 3000, at: 0, source: 'supplier', reserved: null }));
+  g.rng = 777;
+  window.__game.save();
+};
+
 test('autosaves and shows offline earnings (capped at 4 open hours) on return', async ({ page, context }) => {
   await boot(page, '2026-11-02T09:00:00-05:00');
-  await page.evaluate(() => window.__game.save());
+  await page.evaluate(stockUp);
   // come back 2 days later: 18+ open hours passed, only 4 count
   const page2 = await context.newPage();
   await page.close();
@@ -50,18 +54,20 @@ test('autosaves and shows offline earnings (capped at 4 open hours) on return', 
   await page2.goto('/');
   await page2.waitForSelector('body[data-ready]');
   await expect(page2.locator('.welcome')).toBeVisible();
-  await expect(page2.locator('.welcome .big')).toHaveText('$2,400');
-  await expect(page2.locator('.welcome')).toContainText('offline cap: 4h');
+  await expect(page2.locator('.welcome')).toContainText('from 4h 0m of open hours (offline cap: 4h');
+  const shown = Number((await page2.locator('.welcome .big').textContent()).replace(/[$,]/g, ''));
+  expect(shown).toBeGreaterThan(0);
   await page2.getByRole('button', { name: 'Collect' }).click();
-  await expect(page2.locator('#cash')).toHaveText('$22,400');
+  expect(Math.floor(await cash(page2))).toBe(20000 + shown);
 });
 
 test('pauses when the app is hidden and catches up as offline time', async ({ page }) => {
   await boot(page, '2026-11-02T09:00:00-05:00');
+  await page.evaluate(stockUp);
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.clock.setFixedTime(new Date('2026-11-02T17:00:00-05:00'));
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
-  await expect(page.locator('.welcome .big')).toHaveText('$2,400');
+  await expect(page.locator('.welcome')).toContainText('offline cap: 4h');
 });
 
 test('save code: export, then import on a fresh game', async ({ page, context }) => {
@@ -69,7 +75,7 @@ test('save code: export, then import on a fresh game', async ({ page, context })
   await page.evaluate(() => { window.__game.state.cash = 98765; });
   await page.locator('#btnSettings').click();
   const code = await page.locator('#exportCode').inputValue();
-  expect(code).toMatch(/^MOTO1\.2\./);
+  expect(code).toMatch(/^MOTO1\.3\./);
 
   await page.evaluate(() => localStorage.clear());
   const fresh = await context.newPage();

@@ -3,7 +3,7 @@ import { BASE_CAPACITY, WHOLESALE, DELIVERY, LOCATIONS } from '../config.js';
 import { BIKE } from '../data/bikes.js';
 import { SPOTS } from '../data/showroom.js';
 import { isOpenAt } from './time.js';
-import { addProcessor } from './engine.js';
+import { addPointRunner } from './engine.js';
 
 export const supplierCost = (modelId, state) => Math.round(BIKE[modelId].price * (state?.wholesale ?? WHOLESALE));
 export const capacity = (state, i) => Math.min(SPOTS.length, BASE_CAPACITY[i] + (state.locations[i].capacityBonus || 0));
@@ -54,7 +54,7 @@ export function deliverDue(state, t) {
   for (const o of due) {
     const spot = freeSpot(state, o.loc);
     if (!spot) continue; // can't happen (space is reserved at order time) but never lose a bike
-    state.locations[o.loc].bikes.push({ uid: o.uid, model: o.model, spot, condition: 100, detailed: false, paid: o.cost, at: o.arriveAt, source: 'supplier' });
+    state.locations[o.loc].bikes.push({ uid: o.uid, model: o.model, spot, condition: 100, detailed: false, paid: o.cost, at: o.arriveAt, source: 'supplier', reserved: null });
     state.orders.splice(state.orders.indexOf(o), 1);
     delivered.push(o);
   }
@@ -74,5 +74,5 @@ export function moveBike(state, i, uid, spotId, now) {
   return { ok: true, swapped: !!other };
 }
 
-// Deliveries happen inside the engine's time advance (live or offline).
-addProcessor((state, from, to, report) => { report.delivered = deliverDue(state, to); });
+// Deliveries happen inside the engine's time advance (live or offline), in time order.
+addPointRunner((state, t, report) => { report.delivered.push(...deliverDue(state, t)); });

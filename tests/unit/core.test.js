@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { isOpenAt, openMsBetween, openWindows, boundaries, nextChange, nightLevel } from '../../src/core/time.js';
-import { newGame, advance, totalRate, spend, addDayHook } from '../../src/core/engine.js';
+import { newGame, advance, totalRate, spend, addDayHook, addIncomeSource } from '../../src/core/engine.js';
+
+// Phase 4 removed the flat placeholder income; give these engine tests a flat $10/min source.
+addIncomeSource((s, i) => (s.__flat && i === 0 ? 10 : 0));
+const game = (t) => Object.assign(newGame(t), { __flat: true });
 import { encode, decode, migrate, store, load, SaveError } from '../../src/core/save.js';
 import { money, duration, clockText } from '../../src/core/format.js';
 
@@ -42,12 +46,12 @@ describe('opening hours (9 AM - 6 PM local)', () => {
 
 describe('engine: shared balance + passive income', () => {
   it('starts with one owned location and starting cash', () => {
-    const g = newGame(at(2026, 3, 2, 9));
+    const g = game(at(2026, 3, 2, 9));
     expect(g.locations.filter((l) => l.owned)).toHaveLength(1);
     expect(g.cash).toBe(20000);
   });
   it('earns only during open hours while playing', () => {
-    const g = newGame(at(2026, 3, 2, 8));
+    const g = game(at(2026, 3, 2, 8));
     const rate = totalRate(g);
     advance(g, at(2026, 3, 2, 8, 30));
     expect(g.cash).toBe(20000);
@@ -55,23 +59,23 @@ describe('engine: shared balance + passive income', () => {
     expect(g.cash).toBeCloseTo(20000 + rate * 3600, 5);
   });
   it('caps offline earnings at 4 open hours by default, 10 when upgraded', () => {
-    const g = newGame(at(2026, 3, 2, 9));
+    const g = game(at(2026, 3, 2, 9));
     const rate = totalRate(g);
     const r = advance(g, at(2026, 3, 4, 9), { offline: true });
     expect(r.openMs).toBe(18 * H);
     expect(r.countedMs).toBe(4 * H);
     expect(r.capped).toBe(true);
     expect(r.earned).toBeCloseTo(rate * 4 * 3600, 5);
-    const g2 = newGame(at(2026, 3, 2, 9));
+    const g2 = game(at(2026, 3, 2, 9));
     g2.offlineCapHours = 10;
     expect(advance(g2, at(2026, 3, 4, 9), { offline: true }).countedMs).toBe(10 * H);
   });
   it('earns nothing offline overnight', () => {
-    const g = newGame(at(2026, 3, 2, 19));
+    const g = game(at(2026, 3, 2, 19));
     expect(advance(g, at(2026, 3, 3, 8), { offline: true }).earned).toBe(0);
   });
   it('never earns or crashes when the clock goes backwards', () => {
-    const g = newGame(at(2026, 3, 2, 12));
+    const g = game(at(2026, 3, 2, 12));
     const r = advance(g, at(2026, 3, 2, 10));
     expect(r.earned).toBe(0);
     expect(g.lastTick).toBe(at(2026, 3, 2, 10));
@@ -79,13 +83,13 @@ describe('engine: shared balance + passive income', () => {
   it('fires day hooks for every open/close crossed (used later for wages + deliveries)', () => {
     const seen = [];
     addDayHook((s, b) => seen.push(b.type));
-    const g = newGame(at(2026, 3, 2, 12));
+    const g = game(at(2026, 3, 2, 12));
     advance(g, at(2026, 3, 4, 12), { offline: true });
     expect(seen).toEqual(['close', 'open', 'close', 'open']);
     expect(g.stats.daysOpened).toBe(2);
   });
   it('tracks earnings per day and the best day', () => {
-    const g = newGame(at(2026, 3, 2, 9));
+    const g = game(at(2026, 3, 2, 9));
     advance(g, at(2026, 3, 2, 18));
     const day1 = g.today.earned;
     advance(g, at(2026, 3, 3, 10));
@@ -93,7 +97,7 @@ describe('engine: shared balance + passive income', () => {
     expect(g.stats.bestDay).toBeCloseTo(day1, 5);
   });
   it('spends only what you have', () => {
-    const g = newGame(0);
+    const g = game(0);
     expect(spend(g, 25000)).toBe(false);
     expect(spend(g, 5000)).toBe(true);
     expect(g.cash).toBe(15000);
@@ -102,7 +106,7 @@ describe('engine: shared balance + passive income', () => {
 
 describe('save codes', () => {
   it('round-trips through a copy-paste code', () => {
-    const g = newGame(at(2026, 3, 2, 9));
+    const g = game(at(2026, 3, 2, 9));
     g.cash = 123456.78;
     const back = decode(encode(g));
     expect(back).toEqual(g);
@@ -125,17 +129,17 @@ describe('save codes', () => {
   });
   it('upgrades old-format saves instead of breaking them', () => {
     const old = { createdAt: 1, lastTick: 1, money: 777 }; // pretend v0 save
-    expect(migrate(old)).toMatchObject({ v: 2, cash: 777, orders: [] });
+    expect(migrate(old)).toMatchObject({ v: 3, cash: 777, orders: [], tradeIn: null });
   });
   it('upgrades a Phase 2 (v1) save with showroom fields', () => {
     const v1 = { v: 1, createdAt: 1, lastTick: 1, cash: 5000, locations: [{ id: 1, owned: true, earned: 3 }] };
     const up = migrate(v1);
-    expect(up.v).toBe(2);
+    expect(up.v).toBe(3);
     expect(up.locations[0]).toMatchObject({ owned: true, earned: 3, bikes: [], capacityBonus: 0 });
     expect(up.nextUid).toBe(1);
   });
   it('fills missing fields with defaults', () => {
-    const g = migrate({ v: 2, cash: 5, lastTick: 1 });
+    const g = migrate({ v: 3, cash: 5, lastTick: 1 });
     const full = decode(encode(g));
     expect(full.locations).toHaveLength(5);
     expect(full.offlineCapHours).toBe(4);
@@ -143,7 +147,7 @@ describe('save codes', () => {
   it('autosaves with a backup and recovers if the main save is corrupted', () => {
     const mem = new Map();
     const ls = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
-    const g = newGame(1);
+    const g = game(1);
     store(g, ls);
     g.cash = 999;
     store(g, ls);
@@ -151,7 +155,7 @@ describe('save codes', () => {
     expect(load(2, ls).cash).toBe(20000);
   });
   it('handles large saves', () => {
-    const g = newGame(1);
+    const g = game(1);
     g.log = Array.from({ length: 20000 }, (_, i) => ({ i, note: 'sale' }));
     expect(decode(encode(g)).log).toHaveLength(20000);
   });

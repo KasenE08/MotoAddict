@@ -28,6 +28,8 @@ export const MIGRATIONS = {
   0: (s) => { const { money, ...rest } = s; return { ...rest, cash: rest.cash ?? money ?? 0, v: 1 }; },
   // 1 -> 2 (Phase 3): showroom inventory + supplier orders.
   1: (s) => ({ ...s, v: 2, orders: s.orders ?? [], nextUid: s.nextUid ?? 1, locations: (s.locations ?? []).map((l) => ({ bikes: [], capacityBonus: 0, ...l })) }),
+  // 2 -> 3 (Phase 4): customer simulation, trade-ins, sales stats (stats filled by defaults).
+  2: (s) => ({ ...s, v: 3, rng: s.rng ?? ((s.createdAt || 1) % 2147483647) | 1, tradeIn: s.tradeIn ?? null, locations: (s.locations ?? []).map((l) => ({ sim: null, ...l, bikes: (l.bikes ?? []).map((b) => ({ reserved: null, ...b })) })) }),
 };
 
 export function migrate(data) {
@@ -46,7 +48,7 @@ export function migrate(data) {
 // Fill anything missing with defaults so partial/older saves still load.
 function withDefaults(s, now) {
   const base = newGame(s.createdAt ?? now);
-  const out = { ...base, ...s, stats: { ...base.stats, ...s.stats }, settings: { ...base.settings, ...s.settings }, today: { ...base.today, ...s.today } };
+  const out = { ...base, ...s, stats: { ...base.stats, ...s.stats, soldModels: { ...(s.stats?.soldModels || {}) } }, settings: { ...base.settings, ...s.settings }, today: { ...base.today, ...s.today } };
   out.locations = base.locations.map((l, i) => ({ ...l, ...(s.locations?.[i] || {}) }));
   if (typeof out.cash !== 'number' || !Number.isFinite(out.cash)) throw new SaveError('Save is damaged (bad cash value).');
   if (typeof out.lastTick !== 'number') out.lastTick = now;

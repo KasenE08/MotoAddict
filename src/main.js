@@ -2,13 +2,16 @@
 import { LOCATIONS, OPEN_HOUR, CLOSE_HOUR } from './config.js';
 import { now, setDevOffset, getDevOffset } from './core/clock.js';
 import { newGame, advance, totalRate } from './core/engine.js';
-import { isOpenAt, nextChange, nightLevel } from './core/time.js';
+import { isOpenAt, nextChange, nightLevel, dayKey } from './core/time.js';
 import { store, load, encode, decode, clearSave, SaveError } from './core/save.js';
 import { money, duration, clockText, hourText } from './core/format.js';
 import { renderDealership, toMap, spotAt, W as MAP_W, H as MAP_H } from './render/world.js';
 import { capacity, pendingFor } from './core/showroom.js';
 import { BIKE } from './data/bikes.js';
 import { openSupplier, openShowroom, openBike } from './ui/shop.js';
+import './core/sales.js';
+import { makeCrowd } from './ui/crowd.js';
+import { makeHaggle, makeTradeIn, floatMoney, spotXY } from './ui/salesui.js';
 import { makeCamera } from './ui/camera.js';
 import { fill } from './ui/icons.js';
 import { openModal, toast } from './ui/modal.js';
@@ -30,6 +33,8 @@ async function buildHud() {
       <div class="pnl cap hud-el" id="capChip">{{bike:24}}<b id="capTxt">0/4</b></div>
       <div class="pnl loc hud-el" id="locChip">{{rank:26}}<div><small id="locNo">LOCATION 1</small><b id="locName">Rust Row</b></div></div>
     </div>
+    <div class="promo hud-el" id="tradein" hidden></div>
+    <div class="haggle hud-el" id="haggle" hidden></div>
     <div class="hud-bl">
       <button class="bb big hud-el" id="btnSupplier" aria-label="Supplier">{{cart:38}}</button>
       <button class="bb hud-el" id="btnShowroom" aria-label="Showroom">{{bike:36:#fff6e0}}</button>
@@ -49,8 +54,9 @@ function renderHud() {
   const t = now();
   const open = isOpenAt(t);
   $('#cash').textContent = money(state.cash);
-  $('#rate').textContent = open ? `+${money(totalRate(state) * 60)}/min` : 'closed';
-  $('#rate').classList.toggle('off', !open);
+  const today = state.today.key === dayKey(t) ? state.today.earned : 0;
+  $('#rate').textContent = `today +${money(today)}`;
+  $('#rate').classList.toggle('off', !open && today === 0);
   $('#clock').textContent = clockText(t);
   const nc = nextChange(t);
   $('#openTag').textContent = open ? 'OPEN' : `CLOSED · opens ${hourText(OPEN_HOUR)}`;
@@ -77,7 +83,7 @@ async function refreshWorld() {
   if (worldBusy) { worldAgain = true; return; }
   worldBusy = true;
   const i = state.activeLoc;
-  await renderDealership($('#world'), { populated: false, capacity: capacity(state, i), display: state.locations[i].bikes });
+  await renderDealership($('#world'), { populated: false, glass: $('#glass'), capacity: capacity(state, i), display: state.locations[i].bikes });
   worldBusy = false;
   if (worldAgain) { worldAgain = false; refreshWorld(); }
 }
@@ -90,15 +96,39 @@ function onMapTap(mx, my) {
 // shared handle for UI modules
 const G = { get state() { return state; }, now, changed: () => { save(); renderHud(); refreshWorld(); } };
 
+// ---------- live events (sales, customers leaving, haggles, trade-ins) ----------
+let crowd, haggle, tradeIn;
+function handleEvents(report) {
+  const t = now();
+  let restock = false;
+  for (const ev of report.events || []) {
+    if (ev.loc !== undefined && ev.loc !== state.activeLoc) continue;
+    if (ev.type === 'sale') { const [x, y] = spotXY(ev.spot); floatMoney(ev.price, x, y, 'sale'); restock = true; }
+    if (ev.type === 'gear') floatMoney(ev.amount, 11.9, 6.8, 'gear');
+    if (ev.type === 'leave') crowd?.leave(ev, t);
+    if (ev.type === 'tradein') toast('Trade-in offer! Tap it to take a look.');
+  }
+  if (restock) { refreshWorld(); save(); }
+}
+
 // ---------- loop + saving ----------
 function tick() {
   const r = advance(state, now());
+  handleEvents(r);
   if (r.delivered?.length) { toast(`Supplier truck arrived: ${r.delivered.length} bike${r.delivered.length > 1 ? 's' : ''} on display`); refreshWorld(); save(); }
   renderHud();
 }
+let anim = null;
+function animate() {
+  if (document.hidden) return;
+  const t = now();
+  crowd.draw(state, t);
+  haggle.render();
+  tradeIn.render();
+}
 function save() { try { store(state); } catch (e) { console.warn('autosave failed', e); } }
-function start() { if (!loop) { loop = setInterval(tick, 250); } tick(); }
-function stop() { clearInterval(loop); loop = null; }
+function start() { if (!loop) { loop = setInterval(tick, 250); anim = setInterval(animate, 120); } tick(); }
+function stop() { clearInterval(loop); clearInterval(anim); loop = null; anim = null; }
 
 async function catchUp() {
   const r = advance(state, now(), { offline: true });
@@ -107,11 +137,15 @@ async function catchUp() {
   if (r.delivered?.length) refreshWorld();
   if (r.awayMs < 60e3) return;
   const del = r.delivered?.length ? `<p class="sub">Delivered overnight: ${r.delivered.map((o) => BIKE[o.model].name).join(', ')}.</p>` : '';
+  const sold = r.sales.length ? `<p class="sub">Sold ${r.sales.length} bike${r.sales.length > 1 ? 's' : ''}: ${r.sales.map((x) => BIKE[x.model].name).join(', ')} (${money(r.sales.reduce((a, x) => a + x.price, 0))})${r.autoHaggles ? ` — your staff accepted ${r.autoHaggles} haggle offer${r.autoHaggles > 1 ? 's' : ''}` : ''}.</p>` : '';
+  const gear = r.gearCount ? `<p class="sub">Gear, helmets &amp; parts: ${r.gearCount} sale${r.gearCount > 1 ? 's' : ''} (${money(r.gear)}).</p>` : '';
+  const walk = r.walkouts ? `<p class="sub">${r.walkouts} customer${r.walkouts > 1 ? 's' : ''} walked out waiting for a salesperson.</p>` : '';
+  if (r.sales.length) refreshWorld();
   const capH = state.offlineCapHours;
   let body;
   if (r.earned > 0) {
     body = `<p>While you were away, your dealership earned</p><p class="big">${money(r.earned)}</p>
-      <p class="sub">from ${duration(r.countedMs)} of open hours${r.capped ? ` (offline cap: ${capH}h — you were open ${duration(r.openMs)})` : ''}.</p>${del}`;
+      <p class="sub">from ${duration(r.countedMs)} of open hours${r.capped ? ` (offline cap: ${capH}h — you were open ${duration(r.openMs)})` : ''}.</p>${sold}${gear}${walk}${del}`;
   } else {
     body = `<p>You were away ${duration(r.awayMs)}.</p><p class="sub">The dealership was closed the whole time, so nothing was earned. It's open ${hourText(OPEN_HOUR)}–${hourText(CLOSE_HOUR)}.</p>${del}`;
   }
@@ -162,6 +196,7 @@ async function openSettings() {
     if (!confirm('Are you sure? This cannot be undone.')) return;
     clearSave();
     state = newGame(now());
+    crowd.reset();
     save();
     renderHud();
     refreshWorld();
@@ -199,6 +234,9 @@ async function boot() {
   cam.lookAt(...toMap(7, 5));
   window.__cam = cam;
   await buildHud();
+  crowd = makeCrowd($('#peopleIn'), $('#peopleOut'));
+  haggle = makeHaggle(G, (rep) => handleEvents(rep));
+  tradeIn = makeTradeIn(G);
   await catchUp();
   start();
   setInterval(save, 5000);

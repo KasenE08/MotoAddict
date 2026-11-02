@@ -14,5 +14,11 @@ export const SPOTS = [
   { id: 'L2', kind: 'floor', x: 1.15, y: 6.8, h: 65, label: 'Side wall' },
   { id: 'P1', kind: 'floor', x: 10.4, y: 5.0, h: 200, label: 'Podium' },
 ];
+// Where a customer stands to look at each bike (tile coords).
+const VIEW = { feature: [1.0, 2.1], window: [0.3, -1.4] };
+for (const s of SPOTS) {
+  const [dx, dy] = s.id.startsWith('B') ? [0.3, 1.6] : s.id.startsWith('L') ? [1.6, 0.4] : s.id === 'P1' ? [-1.2, 1.5] : VIEW[s.kind];
+  s.vx = s.x + dx; s.vy = s.y + dy;
+}
 export const SPOT = Object.fromEntries(SPOTS.map((s) => [s.id, s]));
 export const KIND_LABEL = { feature: 'Featured', window: 'Window', floor: 'Floor' };

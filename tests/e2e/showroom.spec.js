@@ -31,6 +31,7 @@ test('order from the supplier, truck arrives overnight, bikes appear on display'
   await page.clock.setFixedTime(new Date('2026-11-03T02:00:30-05:00'));
   await expect(page.locator('#capTxt')).toHaveText('2/4');
   await expect(page.locator('.toast')).toContainText('Supplier truck arrived: 2 bikes');
+  // (the long jump to 2 AM ran a day of customers; no bikes were on display then)
   await expect(page.locator('#deliv')).toBeHidden();
   const st = await S(page);
   expect(st.locations[0].bikes.map((b) => b.model).sort()).toEqual(['ninja-500', 'yzf-r3']);
@@ -40,6 +41,7 @@ test('arranging: blocked while open, works while closed', async ({ page }) => {
   await boot(page, '2026-11-02T10:00:00-05:00');
   await page.evaluate(async () => {
     const g = window.__game.state;
+    g.locations[0].sim = { nextArrival: Date.now() + 99 * 864e5, nextTradeIn: Date.now() + 99 * 864e5, customers: [], nextId: 1 }; // keep customers away
     g.locations[0].bikes.push({ uid: 900, model: 'yzf-r3', spot: 'F', condition: 100, detailed: false, paid: 1, at: 0 }, { uid: 901, model: 'ninja-500', spot: 'B2', condition: 100, detailed: false, paid: 1, at: 0 });
     await window.__game.refreshWorld();
   });

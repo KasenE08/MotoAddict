@@ -4,6 +4,7 @@ import { SPOTS, SPOT, KIND_LABEL } from '../data/showroom.js';
 import { LOCATIONS, WHOLESALE } from '../config.js';
 import { orderBike, cancelOrder, supplierCost, capacity, usedSpace, isUnlocked, moveBike, pendingFor } from '../core/showroom.js';
 import { isOpenAt } from '../core/time.js';
+import { salePrice } from '../core/sales.js';
 import { money, duration } from '../core/format.js';
 import { openModal, toast } from './modal.js';
 import { fill } from './icons.js';
@@ -83,7 +84,7 @@ export async function openShowroom(g, selectUid = null) {
         const b = bySpot.get(sp.id), bk = b && BIKE[b.model];
         return `<button class="spot ${sp.kind} ${b && b.uid === sel ? 'sel' : ''} ${b ? '' : 'empty'}" data-spot="${sp.id}" ${b ? `data-uid="${b.uid}"` : ''}>
           <span class="k">${KIND_LABEL[sp.kind]} · ${sp.label}</span>
-          ${b ? `${img(b.model, 16)}<span class="nm">${bk.name}</span><span class="pr">${money(bk.price)}</span>` : '<span class="em">Empty — order a bike</span>'}
+          ${b ? `${img(b.model, 16)}<span class="nm">${bk.name}${b.source === 'tradein' ? ' <i class="used">used</i>' : ''}</span><span class="pr">${money(salePrice(b))}</span>` : '<span class="em">Empty — order a bike</span>'}
         </button>`;
       }).join('')}</div>`);
   }
@@ -119,10 +120,11 @@ export async function openBike(g, uid) {
       <div class="bc">
         <div class="art">${img(b.model, 40, 'big')}</div>
         <div class="info">
-          <div class="br">${bk.brand} · ${bk.color}</div>
+          <div class="br">${bk.brand} · ${bk.color}${b.source === 'tradein' ? ' · used (trade-in)' : ''}</div>
           <div class="specs"><span>{{engine:22}}<b>${bk.cc}</b>cc</span><span>{{bolt:22}}<b>${bk.hp}</b>hp</span><span>{{speed:22}}<b>${bk.mph}</b>mph</span></div>
           <div class="rows">
-            <div><span>Sells for</span><b class="g">${money(bk.price)}</b></div>
+            <div><span>Sells for</span><b class="g">${money(salePrice(b))}</b></div>
+            ${b.source === 'tradein' ? `<div><span>New price</span><b>${money(bk.price)}</b></div>` : ''}
             <div><span>You paid</span><b>${money(b.paid)}</b></div>
             <div><span>Condition</span><b>${b.condition}%</b></div>
             <div><span>Display</span><b>${KIND_LABEL[sp.kind]} · ${sp.label}</b></div>

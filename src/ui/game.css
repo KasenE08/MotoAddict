@@ -136,3 +136,30 @@ b { font-weight: 400; }
 .bc .rows div { display: flex; justify-content: space-between; font-size: 18px; border-bottom: 1px solid #2a1d3d; padding: 2px 0; }
 .bc .rows span { color: #c2b6d6; }
 .bc b.g { color: #7ce35b; }
+
+/* ---------- Phase 4: people layers, haggle panel, trade-ins, floating money ---------- */
+#layer canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+#world { position: relative !important; }
+.haggle { position: absolute; left: 50%; bottom: calc(var(--b) + 4px); transform: translateX(-50%); width: min(400px, calc(100% - 340px)); min-width: 300px; background: rgba(22, 26, 48, .96); border: 3px solid #0b0e1c; border-radius: 8px; box-shadow: inset 0 2px 0 rgba(255,255,255,.12), 0 4px 0 rgba(0,0,0,.35); padding: 6px 10px 8px; z-index: 5; animation: pop .18s ease-out; }
+.haggle[hidden] { display: none; }
+.hg-head { display: flex; align-items: center; gap: 10px; }
+.hg-head b { font-size: 24px; color: #ff8a6b; text-shadow: 2px 2px 0 #0b0e1c; }
+.hg-head em { font-style: normal; font-size: 15px; color: #c2b6d6; }
+.hg-timer { flex: 1; height: 10px; background: #0b0e1c; border: 2px solid #3d2b56; border-radius: 3px; overflow: hidden; }
+.hg-timer i { display: block; height: 100%; background: #ffd23f; transition: width .12s linear; }
+.hg-body { display: flex; align-items: center; gap: 8px; font-size: 18px; line-height: 1.1; margin: 4px 0 6px; }
+.hg-body img { width: 54px; image-rendering: pixelated; flex: none; }
+.hg-body .dim { color: #c2b6d6; }
+.hg-btns { display: flex; gap: 6px; }
+.hg-btns .btn { flex: 1; justify-content: center; font-size: 18px; padding: 2px 6px; white-space: nowrap; }
+.promo { position: absolute; left: var(--l); top: calc(var(--t) + 48px); height: 54px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 4px; background: linear-gradient(#ffc93a, #f0a020); border: 3px solid #0b0e1c; border-radius: 6px; box-shadow: inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 rgba(0,0,0,.35); cursor: pointer; animation: pop .25s ease-out; }
+.promo[hidden] { display: none; }
+.promo .pb { width: 64px; image-rendering: pixelated; }
+.promo b { display: block; font-size: 21px; line-height: 1; text-shadow: 2px 2px 0 #8a4a23; }
+.promo span { display: block; font-size: 15px; color: #3d2b1a; line-height: 1; }
+.promo em { display: block; font-style: normal; font-size: 16px; color: #c4382b; line-height: 1; }
+.float { position: absolute; transform: translate(-50%, -100%); font-size: 10px; line-height: 1; white-space: nowrap; color: #7ce35b; text-shadow: 1px 1px 0 #0b0e1c, -1px 0 0 #0b0e1c, 0 -1px 0 #0b0e1c, 1px 0 0 #0b0e1c; pointer-events: none; animation: rise 1.6s ease-out forwards; z-index: 2; }
+.float.gear { color: #ffd23f; font-size: 8px; }
+@keyframes rise { 0% { opacity: 0; margin-top: 4px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -22px; } }
+.m-body .warn { color: #ffd23f; }
+.spot .used { font-style: normal; font-size: 13px; color: #ffd23f; }
