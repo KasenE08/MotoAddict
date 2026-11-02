@@ -29,6 +29,8 @@ export const MIGRATIONS = {
   // 1 -> 2 (Phase 3): showroom inventory + supplier orders.
   1: (s) => ({ ...s, v: 2, orders: s.orders ?? [], nextUid: s.nextUid ?? 1, locations: (s.locations ?? []).map((l) => ({ bikes: [], capacityBonus: 0, ...l })) }),
   // 2 -> 3 (Phase 4): customer simulation, trade-ins, sales stats (stats filled by defaults).
+  // 3 -> 4 (Phases 5-8): staff, upgrades, achievements; display spots now come from each location's layout.
+  3: (s) => ({ ...s, v: 4, glob: s.glob ?? {}, achievements: s.achievements ?? {}, locations: (s.locations ?? []).map((l) => ({ staff: {}, staffLvl: {}, mat: {}, ...l, bikes: (l.bikes ?? []).map((b) => ({ ...b, spot: ({ F: 'F1', L1: 'S1', L2: 'S2' })[b.spot] ?? b.spot })) })) }),
   2: (s) => ({ ...s, v: 3, rng: s.rng ?? ((s.createdAt || 1) % 2147483647) | 1, tradeIn: s.tradeIn ?? null, locations: (s.locations ?? []).map((l) => ({ sim: null, ...l, bikes: (l.bikes ?? []).map((b) => ({ reserved: null, ...b })) })) }),
 };
 
@@ -49,7 +51,12 @@ export function migrate(data) {
 function withDefaults(s, now) {
   const base = newGame(s.createdAt ?? now);
   const out = { ...base, ...s, stats: { ...base.stats, ...s.stats, soldModels: { ...(s.stats?.soldModels || {}) } }, settings: { ...base.settings, ...s.settings }, today: { ...base.today, ...s.today } };
-  out.locations = base.locations.map((l, i) => ({ ...l, ...(s.locations?.[i] || {}) }));
+  out.locations = base.locations.map((l, i) => {
+    const sl = s.locations?.[i] || {};
+    return { ...l, ...sl, staff: { ...(sl.staff || {}) }, staffLvl: { ...(sl.staffLvl || {}) }, mat: { ...(sl.mat || {}) } };
+  });
+  out.glob = { ...(s.glob || {}) };
+  out.achievements = { ...(s.achievements || {}) };
   if (typeof out.cash !== 'number' || !Number.isFinite(out.cash)) throw new SaveError('Save is damaged (bad cash value).');
   if (typeof out.lastTick !== 'number') out.lastTick = now;
   return out;

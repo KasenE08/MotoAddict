@@ -7,7 +7,10 @@
     "serve": "node scripts/serve.js",
     "test": "TZ=America/New_York vitest run",
     "test:e2e": "playwright test",
-    "shots": "node scripts/screenshots.js"
+    "shots": "node scripts/screenshots.js",
+    "build": "node scripts/build_sw.mjs",
+    "icons": "node scripts/make_icons.mjs",
+    "balance": "TZ=America/New_York node scripts/balance.mjs"
   },
   "devDependencies": {
     "@fontsource/bangers": "^5.2.8",

@@ -1,7 +1,9 @@
 // Supplier catalog, showroom arranging and the bike details card.
 import { BIKES, BIKE, BRANDS } from '../data/bikes.js';
-import { SPOTS, SPOT, KIND_LABEL } from '../data/showroom.js';
-import { LOCATIONS, WHOLESALE } from '../config.js';
+import { getLayout } from '../data/layout.js';
+const KIND_LABEL = { feature: 'Featured', window: 'Window', floor: 'Floor' };
+import { LOCATIONS } from '../config.js';
+import { wholesale } from '../core/effects.js';
 import { orderBike, cancelOrder, supplierCost, capacity, usedSpace, isUnlocked, moveBike, pendingFor } from '../core/showroom.js';
 import { isOpenAt } from '../core/time.js';
 import { salePrice } from '../core/sales.js';
@@ -32,7 +34,7 @@ export async function openSupplier(g) {
       <div class="sup-top">
         <span>{{bill:22}}<b>${money(s.cash)}</b></span>
         <span>{{bike:22}}<b>${used}/${cap}</b> spots used</span>
-        <span class="note">Supplier price ${Math.round((s.wholesale ?? WHOLESALE) * 100)}% of MSRP · trucks arrive overnight</span>
+        <span class="note">Supplier price ${(wholesale(s) * 100).toFixed(1).replace('.0', '')}% of MSRP · trucks arrive overnight</span>
       </div>
       <div class="chips">${['All', ...BRANDS].map((b) => `<button class="chip ${b === brand ? 'on' : ''}" data-brand="${b}">${b}</button>`).join('')}</div>
       <div class="cards">${list.map((b) => {
@@ -79,12 +81,12 @@ export async function openShowroom(g, selectUid = null) {
         <span>{{bike:22}}<b>${bikes.length}/${cap}</b> on display${pendingFor(s, i).length ? ` · ${pendingFor(s, i).length} on order` : ''}</span>
         <span class="note ${open ? 'warn' : ''}">${open ? 'Open now — you can rearrange bikes after closing (6 PM).' : sel ? 'Now tap the spot to move it to.' : 'Closed — tap a bike, then a spot, to move it.'}</span>
       </div>
-      <p class="hint">Featured and window spots will get more customer attention once customers arrive (Phase 4).</p>
-      <div class="spots">${SPOTS.slice(0, cap).map((sp) => {
+      <p class="hint">Customers notice bikes on turntables (featured) and in the front window more. Detailed bikes sell more often; used bikes sell for less until a mechanic fixes them.</p>
+      <div class="spots">${getLayout(i).spots.slice(0, cap).map((sp) => {
         const b = bySpot.get(sp.id), bk = b && BIKE[b.model];
         return `<button class="spot ${sp.kind} ${b && b.uid === sel ? 'sel' : ''} ${b ? '' : 'empty'}" data-spot="${sp.id}" ${b ? `data-uid="${b.uid}"` : ''}>
           <span class="k">${KIND_LABEL[sp.kind]} · ${sp.label}</span>
-          ${b ? `${img(b.model, 16)}<span class="nm">${bk.name}${b.source === 'tradein' ? ' <i class="used">used</i>' : ''}</span><span class="pr">${money(salePrice(b))}</span>` : '<span class="em">Empty — order a bike</span>'}
+          ${b ? `${img(b.model, 16)}<span class="nm">${bk.name}${b.source === 'tradein' ? ' <i class="used">used</i>' : ''}${b.detailed ? ' <i class="det">✦</i>' : ''}</span><span class="pr">${money(salePrice(b))}${b.condition < 100 ? ` · ${Math.floor(b.condition)}%` : ''}</span>` : '<span class="em">Empty — order a bike</span>'}
         </button>`;
       }).join('')}</div>`);
   }
@@ -111,7 +113,7 @@ export async function openBike(g, uid) {
   const s = g.state, i = s.activeLoc;
   const b = s.locations[i].bikes.find((x) => x.uid === uid);
   if (!b) return;
-  const bk = BIKE[b.model], sp = SPOT[b.spot];
+  const bk = BIKE[b.model], sp = getLayout(i).spot[b.spot];
   const open = isOpenAt(g.now());
   await openModal({
     title: bk.name,
@@ -126,7 +128,8 @@ export async function openBike(g, uid) {
             <div><span>Sells for</span><b class="g">${money(salePrice(b))}</b></div>
             ${b.source === 'tradein' ? `<div><span>New price</span><b>${money(bk.price)}</b></div>` : ''}
             <div><span>You paid</span><b>${money(b.paid)}</b></div>
-            <div><span>Condition</span><b>${b.condition}%</b></div>
+            <div><span>Condition</span><b>${Math.floor(b.condition)}%${b.condition < 100 ? ' (mechanics repair it)' : ''}</b></div>
+            <div><span>Detailed</span><b>${b.detailed ? 'Yes (+sale chance)' : 'Not yet'}</b></div>
             <div><span>Display</span><b>${KIND_LABEL[sp.kind]} · ${sp.label}</b></div>
           </div>
         </div>

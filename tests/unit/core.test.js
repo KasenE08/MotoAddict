@@ -67,7 +67,7 @@ describe('engine: shared balance + passive income', () => {
     expect(r.capped).toBe(true);
     expect(r.earned).toBeCloseTo(rate * 4 * 3600, 5);
     const g2 = game(at(2026, 3, 2, 9));
-    g2.offlineCapHours = 10;
+    g2.glob.offlineCap = 6;
     expect(advance(g2, at(2026, 3, 4, 9), { offline: true }).countedMs).toBe(10 * H);
   });
   it('earns nothing offline overnight', () => {
@@ -129,17 +129,17 @@ describe('save codes', () => {
   });
   it('upgrades old-format saves instead of breaking them', () => {
     const old = { createdAt: 1, lastTick: 1, money: 777 }; // pretend v0 save
-    expect(migrate(old)).toMatchObject({ v: 3, cash: 777, orders: [], tradeIn: null });
+    expect(migrate(old)).toMatchObject({ v: 4, cash: 777, orders: [], tradeIn: null, glob: {} });
   });
   it('upgrades a Phase 2 (v1) save with showroom fields', () => {
     const v1 = { v: 1, createdAt: 1, lastTick: 1, cash: 5000, locations: [{ id: 1, owned: true, earned: 3 }] };
     const up = migrate(v1);
-    expect(up.v).toBe(3);
-    expect(up.locations[0]).toMatchObject({ owned: true, earned: 3, bikes: [], capacityBonus: 0 });
+    expect(up.v).toBe(4);
+    expect(up.locations[0]).toMatchObject({ owned: true, earned: 3, bikes: [], capacityBonus: 0, staff: {}, mat: {} });
     expect(up.nextUid).toBe(1);
   });
   it('fills missing fields with defaults', () => {
-    const g = migrate({ v: 3, cash: 5, lastTick: 1 });
+    const g = migrate({ v: 4, cash: 5, lastTick: 1 });
     const full = decode(encode(g));
     expect(full.locations).toHaveLength(5);
     expect(full.offlineCapHours).toBe(4);

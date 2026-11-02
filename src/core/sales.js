@@ -1,79 +1,87 @@
 // Customers + sales: arrivals, budgets, wants, salesperson service, buying,
-// haggling, walk-outs, gear sales and trade-in offers. Pure logic, seeded RNG.
-import { CUSTOMERS, SALES, LOCATIONS } from '../config.js';
+// haggling, walk-outs, gear sales, trash and trade-in offers. Pure logic, seeded RNG.
+import { CUSTOMERS, SALES, LOCATIONS, TRASH_CHANCE } from '../config.js';
 import { BIKE, BIKES, BRANDS } from '../data/bikes.js';
-import { SPOT, SPOTS } from '../data/showroom.js';
+import { getLayout } from '../data/layout.js';
 import { addOpenRunner, earn } from './engine.js';
 import { isOpenAt } from './time.js';
 import { rng, uniform, chance, expWait, gauss, weighted, pick } from './rng.js';
-import { freeSpace, capacity } from './showroom.js';
+import { freeSpace, freeSpot } from './showroom.js';
+import * as F from './effects.js';
 
 const MIN = 60e3;
 
-// ---- tuning hooks for later phases (staff, upgrades, rating) ----
-const mods = { arrivals: [], buyChance: [], servers: [], finance: [], gear: [], haggle: [] };
-/** Register a modifier: kind in arrivals|buyChance|servers|finance|gear|haggle, fn(state, i) -> number. */
-export const addSalesMod = (kind, fn) => mods[kind].push(fn);
-const sum = (kind, state, i) => mods[kind].reduce((a, f) => a + (f(state, i) || 0), 0);
-
-export const arrivalsPerHour = (state, i) => CUSTOMERS[i].arrivals * (1 + sum('arrivals', state, i));
-export const servers = (state, i) => 1 + sum('servers', state, i); // you, plus salesmen (Phase 5)
-const financeStretch = (state, i) => SALES.financeStretch + sum('finance', state, i);
+export const arrivalsPerHour = (state, i) => CUSTOMERS[i].arrivals * F.arrivalsMult(state, i);
+export const servers = (state, i) => F.servers(state, i);
 const wealth = (i) => Math.sqrt(CUSTOMERS[i].budget / CUSTOMERS[0].budget);
+const spotKind = (i, spotId) => getLayout(i).spot[spotId]?.kind || 'floor';
 
 /** What a bike sells for: list price, scaled down for used/damaged bikes. */
 export function salePrice(bike) {
   const list = BIKE[bike.model].price;
   if (bike.source !== 'tradein' && bike.condition >= 100) return list;
-  return Math.round(list * (0.45 + 0.4 * (bike.condition / 100)) / 10) * 10;
+  return Math.round((list * (0.45 + 0.4 * (bike.condition / 100))) / 10) * 10;
 }
 
-function sim(state, i) {
+export function sim(state, i) {
   const loc = state.locations[i];
-  if (!loc.sim) loc.sim = { nextArrival: null, nextTradeIn: null, customers: [], nextId: 1 };
+  if (!loc.sim) loc.sim = { nextArrival: null, nextTradeIn: null, customers: [], nextId: 1, piles: 0 };
+  if (loc.sim.piles == null) loc.sim.piles = 0;
   return loc.sim;
 }
 
-function newCustomer(state, i, t) {
+function newCustomer(state, i, t, extra = {}) {
   const s = sim(state, i);
-  const budget = Math.round(CUSTOMERS[i].budget * Math.exp(SALES.budgetSpread * gauss(state)) / 50) * 50;
+  const budget = Math.round((CUSTOMERS[i].budget * Math.exp(SALES.budgetSpread * gauss(state))) / 50) * 50;
   const c = {
     id: s.nextId++,
     budget,
     brand: chance(state, SALES.brandLoyal) ? pick(state, BRANDS) : null,
     arrivedAt: t,
     phase: 'queue',
-    giveUpAt: t + uniform(state, ...SALES.patienceMinutes) * MIN,
+    giveUpAt: t + uniform(state, ...SALES.patienceMinutes) * MIN * F.patienceMult(state),
     look: Math.floor(rng(state) * 1e9), // appearance seed for the renderer
+    ...extra,
   };
+  // online listings: some customers arrive already wanting a bike you have
+  if (!c.want && chance(state, F.listingsChance(state))) {
+    const max = c.budget * (1 + F.financeStretch(state, i));
+    const fits = state.locations[i].bikes.filter((b) => salePrice(b) <= max);
+    if (fits.length) c.want = pick(state, fits).uid;
+  }
   s.customers.push(c);
+  s.dayCustomers = (s.dayCustomers || 0) + 1;
   state.stats.customers++;
   return c;
 }
 
 /** Which displayed bike (if any) this customer wants. Richer customers lean to pricier bikes. */
 export function chooseBike(state, i, c) {
-  const max = c.budget * (1 + financeStretch(state, i));
+  const max = c.budget * (1 + F.financeStretch(state, i));
   const options = state.locations[i].bikes.filter((b) => !b.reserved && salePrice(b) <= max);
   if (!options.length) return null;
   return weighted(state, options, (b) => {
     const p = salePrice(b) / c.budget;
     const brand = !c.brand ? 1 : BIKE[b.model].brand === c.brand ? 3 : 0.35;
-    const spot = SPOT[b.spot]?.kind === 'feature' ? 1.6 : SPOT[b.spot]?.kind === 'window' ? 1.3 : 1;
-    return p * p * brand * spot;
+    const kind = spotKind(i, b.spot);
+    const spot = kind === 'feature' ? 1.6 : kind === 'window' ? 1.3 : 1;
+    const want = c.want === b.uid ? 6 : 1;
+    return p * p * brand * spot * want;
   });
 }
 
-const buyChanceFor = (state, i, bike) => {
-  const kind = SPOT[bike.spot]?.kind || 'floor';
+const buyChanceFor = (state, i, bike, c) => {
+  const kind = spotKind(i, bike.spot);
   const cond = 0.6 + 0.4 * (bike.condition / 100);
-  return Math.min(0.95, (SALES.buyChance + SALES.spotBonus[kind] + sum('buyChance', state, i)) * cond);
+  const detailed = bike.detailed ? 0.06 : 0;
+  const want = c?.want === bike.uid ? 0.15 : 0;
+  return Math.min(0.95, (SALES.buyChance + SALES.spotBonus[kind] + F.buyBonus(state, i) + detailed + want) * cond);
 };
 
 function gearSale(state, i, c, isBuyer, t, report) {
-  const p = (isBuyer ? SALES.gearChance.buyer : SALES.gearChance.browser) + sum('gear', state, i);
+  const p = (isBuyer ? SALES.gearChance.buyer : SALES.gearChance.browser) + F.gearChanceBonus(state, i, isBuyer);
   if (!chance(state, p)) return;
-  const amount = Math.round(uniform(state, ...SALES.gear) * wealth(i) / 5) * 5;
+  const amount = Math.round((uniform(state, ...SALES.gear) * wealth(i) * F.gearAmountMult(state, i)) / 5) * 5;
   earn(state, amount, t, report);
   state.stats.gearSold++;
   state.stats.gearRevenue += amount;
@@ -84,8 +92,10 @@ function gearSale(state, i, c, isBuyer, t, report) {
 
 function leave(state, i, c, t, report, why) {
   const s = sim(state, i);
-  s.customers.splice(s.customers.indexOf(c), 1);
-  if (why === 'walkout') { state.stats.walkouts++; report.walkouts++; }
+  const k = s.customers.indexOf(c);
+  if (k >= 0) s.customers.splice(k, 1);
+  if (why === 'walkout') { state.stats.walkouts++; report.walkouts = (report.walkouts || 0) + 1; }
+  if (why !== 'closing' && chance(state, TRASH_CHANCE)) s.piles = Math.min(12, s.piles + 1);
   report.events.push({ type: 'leave', loc: i, cust: c.id, why, at: t });
 }
 
@@ -95,17 +105,24 @@ export function completeSale(state, i, c, price, t, report) {
   const k = loc.bikes.findIndex((b) => b.uid === c.bikeUid);
   if (k < 0) return false;
   const [bike] = loc.bikes.splice(k, 1);
-  earn(state, price, t, report);
+  const warranty = Math.round(price * F.warrantyRate(state));
+  earn(state, price + warranty, t, report);
   const st = state.stats;
   st.bikesSold++;
   st.bikeRevenue += price;
   st.biggestSale = Math.max(st.biggestSale, price);
   st.soldModels[bike.model] = (st.soldModels[bike.model] || 0) + 1;
-  report.sales.push({ loc: i, model: bike.model, price, list: BIKE[bike.model].price, paid: bike.paid, spot: bike.spot, at: t });
-  report.events.push({ type: 'sale', loc: i, cust: c.id, model: bike.model, spot: bike.spot, price, at: t });
+  if (price >= bike.paid && price >= BIKE[bike.model].price && c.round) st.fullPriceHaggles = (st.fullPriceHaggles || 0) + 1;
+  report.sales.push({ loc: i, model: bike.model, price, warranty, list: BIKE[bike.model].price, paid: bike.paid, spot: bike.spot, at: t });
+  report.events.push({ type: 'sale', loc: i, cust: c.id, model: bike.model, spot: bike.spot, price: price + warranty, at: t });
   gearSale(state, i, c, true, t, report);
   c.phase = 'done';
   leave(state, i, c, t, report, 'bought');
+  // referral: happy buyers bring a friend
+  if (isOpenAt(t) && chance(state, F.referralChance(state))) {
+    const s = sim(state, i);
+    s.nextArrival = Math.min(s.nextArrival ?? Infinity, t + 2 * MIN);
+  }
   return true;
 }
 
@@ -113,18 +130,19 @@ export function completeSale(state, i, c, price, t, report) {
 function decide(state, i, c, t, report, offline) {
   const bike = chooseBike(state, i, c);
   if (!bike) { gearSale(state, i, c, false, t, report); leave(state, i, c, t, report, 'nothing'); return; }
-  if (!chance(state, buyChanceFor(state, i, bike))) { gearSale(state, i, c, false, t, report); leave(state, i, c, t, report, 'nobuy'); return; }
+  if (!chance(state, buyChanceFor(state, i, bike, c))) { gearSale(state, i, c, false, t, report); leave(state, i, c, t, report, 'nobuy'); return; }
   c.bikeUid = bike.uid;
   const list = salePrice(bike);
-  if (chance(state, Math.max(0, SALES.haggleChance + sum('haggle', state, i)))) {
-    const offer = Math.round(list * (1 - uniform(state, ...SALES.offer)) / 10) * 10;
+  if (chance(state, SALES.haggleChance)) {
+    const [lo, hi] = SALES.offer;
+    const offer = Math.round((list * (1 - uniform(state, lo, hi) * F.offerShrink(state))) / 10) * 10;
     if (offline) { // nobody to ask: the floor staff take the offer
-      report.autoHaggles++;
+      report.autoHaggles = (report.autoHaggles || 0) + 1;
       completeSale(state, i, c, offer, t, report);
       return;
     }
     bike.reserved = c.id;
-    Object.assign(c, { phase: 'haggle', offer, list, deadline: t + SALES.haggleSeconds * 1000, round: 1 });
+    Object.assign(c, { phase: 'haggle', offer, list, deadline: t + F.haggleSeconds(state) * 1000, round: 1 });
     report.events.push({ type: 'haggle', loc: i, cust: c.id, model: bike.model, offer, list, at: t });
     return;
   }
@@ -134,7 +152,7 @@ function decide(state, i, c, t, report, offline) {
 function startServing(state, i, t) {
   const s = sim(state, i);
   const busy = s.customers.filter((c) => c.phase === 'browse' || c.phase === 'haggle').length;
-  let free = servers(state, i) - busy;
+  let free = F.servers(state, i) - busy;
   for (const c of s.customers) {
     if (free <= 0) break;
     if (c.phase !== 'queue') continue;
@@ -157,25 +175,28 @@ function nextEventTime(state, i) {
   return t;
 }
 
+const unreserve = (state, i, c) => { const b = state.locations[i].bikes.find((x) => x.uid === c.bikeUid); if (b) b.reserved = null; };
+
 /** Simulate one owned location over an open stretch. */
 function runLocation(state, i, start, end, report) {
   const s = sim(state, i);
   const offline = report.offline;
+  const tradeRate = SALES.tradeInPerHour * F.tradeInRateMult(state);
   if (s.nextArrival == null || s.nextArrival < start) s.nextArrival = start + expWait(state, arrivalsPerHour(state, i));
-  if (!offline && i === state.activeLoc && (s.nextTradeIn == null || s.nextTradeIn < start)) s.nextTradeIn = start + expWait(state, SALES.tradeInPerHour);
-  if (offline) s.nextTradeIn = null;
+  if (!offline && i === state.activeLoc && (s.nextTradeIn == null || s.nextTradeIn < start)) s.nextTradeIn = start + expWait(state, tradeRate);
+  if (offline || i !== state.activeLoc) s.nextTradeIn = null;
   // pending haggles when you were away: the floor staff accepted the offer
-  if (offline) for (const c of [...s.customers]) if (c.phase === 'haggle') { report.autoHaggles++; completeSale(state, i, c, c.offer, start, report); }
-  for (let guard = 0; guard < 5000; guard++) {
+  if (offline) for (const c of [...s.customers]) if (c.phase === 'haggle') { report.autoHaggles = (report.autoHaggles || 0) + 1; completeSale(state, i, c, c.offer, start, report); }
+  for (let guard = 0; guard < 20000; guard++) {
     const t = nextEventTime(state, i);
     if (t > end) break;
     if (t === s.nextArrival) {
       const c = newCustomer(state, i, t);
-      report.customers++;
+      report.customers = (report.customers || 0) + 1;
       report.events.push({ type: 'arrive', loc: i, cust: c.id, at: t });
       s.nextArrival = t + expWait(state, arrivalsPerHour(state, i));
     } else if (t === s.nextTradeIn) {
-      s.nextTradeIn = t + expWait(state, SALES.tradeInPerHour);
+      s.nextTradeIn = t + expWait(state, tradeRate);
       if (!state.tradeIn || state.tradeIn.expiresAt <= t) makeTradeIn(state, i, t, report);
     } else {
       const c = s.customers.find((x) => (x.phase === 'queue' && x.giveUpAt === t) || (x.phase === 'browse' && x.decideAt === t) || (x.phase === 'haggle' && x.deadline === t));
@@ -188,13 +209,11 @@ function runLocation(state, i, start, end, report) {
   }
 }
 
-const unreserve = (state, i, c) => { const b = state.locations[i].bikes.find((x) => x.uid === c.bikeUid); if (b) b.reserved = null; };
-
 // At closing time everyone still inside heads home (haggles you ignored are lost).
 function closeUp(state, i, t, report) {
   const s = sim(state, i);
   for (const c of [...s.customers]) {
-    if (c.phase === 'haggle') { unreserve(state, i, c); }
+    if (c.phase === 'haggle') unreserve(state, i, c);
     leave(state, i, c, t, report, 'closing');
   }
   s.nextArrival = null;
@@ -205,18 +224,18 @@ addOpenRunner((state, start, end, report, opt) => {
     if (!l.owned) return;
     if (opt?.skip) { closeUp(state, i, start, report); sim(state, i).nextTradeIn = null; return; }
     runLocation(state, i, start, end, report);
-    // `end` is either "now" (still open) or closing time
-    if (!isOpenAt(end)) closeUp(state, i, end, report);
+    if (!isOpenAt(end)) closeUp(state, i, end, report); // `end` is "now" (still open) or closing time
   });
 });
 
 // ---------------- haggling (player actions) ----------------
 const findHaggle = (state, i, custId) => sim(state, i).customers.find((c) => c.id === custId && c.phase === 'haggle');
+const miniReport = () => ({ earned: 0, events: [], sales: [], gear: 0, gearCount: 0 });
 
 export function acceptOffer(state, i, custId, t) {
   const c = findHaggle(state, i, custId);
   if (!c) return { ok: false };
-  const report = { earned: 0, events: [], sales: [], gear: 0, gearCount: 0 };
+  const report = miniReport();
   completeSale(state, i, c, c.offer, t, report);
   return { ok: true, result: 'sold', price: c.offer, report };
 }
@@ -225,10 +244,10 @@ export function acceptOffer(state, i, custId, t) {
 export function counterOffer(state, i, custId, t) {
   const c = findHaggle(state, i, custId);
   if (!c) return { ok: false };
-  const report = { earned: 0, events: [], sales: [], gear: 0, gearCount: 0 };
+  const report = miniReport();
   if (c.round === 1) {
     const counter = Math.round((c.offer + (c.list - c.offer) / 2) / 10) * 10;
-    if (chance(state, SALES.counterAccept + sum('haggle', state, i))) {
+    if (chance(state, SALES.counterAccept + F.counterBonus(state))) {
       state.stats.hagglesWon++;
       completeSale(state, i, c, counter, t, report);
       return { ok: true, result: 'sold', price: counter, report };
@@ -249,8 +268,8 @@ export function counterOffer(state, i, custId, t) {
 export function refuseOffer(state, i, custId, t) {
   const c = findHaggle(state, i, custId);
   if (!c) return { ok: false };
-  const report = { earned: 0, events: [], sales: [], gear: 0, gearCount: 0 };
-  if (c.round === 1 && chance(state, SALES.refusePayFull)) {
+  const report = miniReport();
+  if (c.round === 1 && chance(state, SALES.refusePayFull + F.counterBonus(state) / 2)) {
     state.stats.hagglesWon++;
     state.stats.hardBargains++;
     completeSale(state, i, c, c.list, t, report);
@@ -270,7 +289,7 @@ function makeTradeIn(state, i, t, report) {
   const pool = chance(state, 0.7) ? BIKES.filter((b) => b.loc === locNo) : BIKES.filter((b) => b.loc <= locNo);
   const model = pick(state, pool).id;
   const condition = Math.round(uniform(state, 55, 85));
-  const cost = Math.round(BIKE[model].price * 0.5 * (0.6 + 0.4 * condition / 100) / 10) * 10;
+  const cost = Math.round((BIKE[model].price * 0.5 * (0.6 + (0.4 * condition) / 100) * F.tradeInCostMult(state)) / 10) * 10;
   state.tradeIn = { loc: i, model, condition, cost, at: t, expiresAt: t + SALES.tradeInMinutes * MIN };
   report.events.push({ type: 'tradein', loc: i, model, at: t });
 }
@@ -278,12 +297,10 @@ function makeTradeIn(state, i, t, report) {
 export function acceptTradeIn(state, t) {
   const o = state.tradeIn;
   if (!o || o.expiresAt <= t) return { ok: false, reason: 'That offer has expired.' };
-  if (freeSpace(state, o.loc) <= 0) return { ok: false, reason: 'No free display spot for it. Sell or wait for space.' };
+  if (freeSpace(state, o.loc) <= 0) return { ok: false, reason: 'No free display spot for it. Sell something or add Storage.' };
   if (state.cash < o.cost) return { ok: false, reason: 'Not enough cash.' };
   state.cash -= o.cost;
-  const taken = new Set(state.locations[o.loc].bikes.map((b) => b.spot));
-  const spot = SPOTS.slice(0, capacity(state, o.loc)).find((sp) => !taken.has(sp.id))?.id;
-  const bike = { uid: state.nextUid++, model: o.model, spot, condition: o.condition, detailed: false, paid: o.cost, at: t, source: 'tradein', reserved: null };
+  const bike = { uid: state.nextUid++, model: o.model, spot: freeSpot(state, o.loc), condition: o.condition, detailed: false, paid: o.cost, at: t, source: 'tradein', reserved: null };
   state.locations[o.loc].bikes.push(bike);
   state.stats.tradeIns++;
   state.tradeIn = null;
@@ -291,4 +308,3 @@ export function acceptTradeIn(state, t) {
 }
 export const declineTradeIn = (state) => { state.tradeIn = null; };
 export const tradeInValue = (o) => salePrice({ model: o.model, condition: o.condition, source: 'tradein' });
-

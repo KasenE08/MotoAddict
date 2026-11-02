@@ -20,7 +20,7 @@ test('order from the supplier, truck arrives overnight, bikes appear on display'
   await page.locator('button.order[data-id="ninja-500"]').click();
   await expect(page.locator('.ord')).toHaveCount(2);
   await expect(page.locator('.ord em').first()).toContainText('tonight, 2 AM');
-  expect((await S(page)).cash).toBeCloseTo(20000 - 4399 - 4319, -1); // plus a few cents of income
+  expect((await S(page)).cash).toBeCloseTo(20000 - 4124 - 4049, -1); // plus a few cents of income
   // brand filter
   await page.locator('.chip[data-brand="Ducati"]').click();
   await expect(page.locator('.card')).toHaveCount(4);
@@ -30,7 +30,7 @@ test('order from the supplier, truck arrives overnight, bikes appear on display'
 
   await page.clock.setFixedTime(new Date('2026-11-03T02:00:30-05:00'));
   await expect(page.locator('#capTxt')).toHaveText('2/4');
-  await expect(page.locator('.toast')).toContainText('Supplier truck arrived: 2 bikes');
+  await expect(page.getByText('Supplier truck arrived: 2 bikes')).toBeVisible({ timeout: 15000 });
   // (the long jump to 2 AM ran a day of customers; no bikes were on display then)
   await expect(page.locator('#deliv')).toBeHidden();
   const st = await S(page);
@@ -42,7 +42,7 @@ test('arranging: blocked while open, works while closed', async ({ page }) => {
   await page.evaluate(async () => {
     const g = window.__game.state;
     g.locations[0].sim = { nextArrival: Date.now() + 99 * 864e5, nextTradeIn: Date.now() + 99 * 864e5, customers: [], nextId: 1 }; // keep customers away
-    g.locations[0].bikes.push({ uid: 900, model: 'yzf-r3', spot: 'F', condition: 100, detailed: false, paid: 1, at: 0 }, { uid: 901, model: 'ninja-500', spot: 'B2', condition: 100, detailed: false, paid: 1, at: 0 });
+    g.locations[0].bikes.push({ uid: 900, model: 'yzf-r3', spot: 'F1', condition: 100, detailed: false, paid: 1, at: 0 }, { uid: 901, model: 'ninja-500', spot: 'B1', condition: 100, detailed: false, paid: 1, at: 0 });
     await window.__game.refreshWorld();
   });
   await page.locator('#btnShowroom').click();
@@ -56,21 +56,20 @@ test('arranging: blocked while open, works while closed', async ({ page }) => {
   await page.locator('#btnShowroom').click();
   await page.locator('.spot[data-uid="900"]').click();
   await expect(page.locator('.spot.sel')).toHaveCount(1);
-  await page.locator('.spot[data-spot="B3"]').click();
-  await expect(page.locator('.toast').last()).toHaveText('Bike moved');
-  expect((await S(page)).locations[0].bikes.find((b) => b.uid === 900).spot).toBe('B3');
+  await page.locator('.spot[data-spot="B2"]').click();
+  await expect(page.getByText('Bike moved')).toBeVisible({ timeout: 10000 });
+  expect((await S(page)).locations[0].bikes.find((b) => b.uid === 900).spot).toBe('B2');
 });
 
 test('tapping a bike in the world opens its details card', async ({ page }) => {
   await boot(page, '2026-11-02T10:00:00-05:00');
   await page.evaluate(async () => {
-    window.__game.state.locations[0].bikes.push({ uid: 7, model: 'rs457', spot: 'F', condition: 100, detailed: false, paid: 5439, at: 0 });
+    window.__game.state.locations[0].bikes.push({ uid: 7, model: 'rs457', spot: 'F1', condition: 100, detailed: false, paid: 5439, at: 0 });
     await window.__game.refreshWorld();
   });
-  // the turntable spot is in the middle of the opening view
-  const pos = await page.evaluate(() => { const c = window.__cam.pos; return { x: c.x, y: c.y, s: c.s }; });
-  const [mx, my] = await page.evaluate(() => [452 + (6.2 - 5.0) * 12, 144 + (11.2) * 6 - 6]);
-  await page.mouse.click(pos.x + mx * pos.s, pos.y + my * pos.s);
+  // tap the turntable bike (a little above its base)
+  const [sx, sy] = await page.evaluate(() => { const f = window.__game.layout().spot.F1; return window.__game.screenOf(f.x, f.y, 0.5); });
+  await page.mouse.click(sx, sy);
   await expect(page.locator('.bikecard')).toBeVisible();
   await expect(page.locator('.bikecard')).toContainText('RS 457');
   await expect(page.locator('.bikecard')).toContainText('$6,799');

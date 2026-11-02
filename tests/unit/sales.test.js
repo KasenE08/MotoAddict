@@ -48,7 +48,7 @@ describe('customers + sales', () => {
   });
   it("customers only want bikes they can afford, preferring pricier ones", () => {
     const g = stocked(['ninja-125', 'yzf-r3']);
-    g.locations[0].bikes.forEach((b, k) => { b.spot = ['B2', 'B3'][k]; }); // both on plain floor spots
+    g.locations[0].bikes.forEach((b, k) => { b.spot = ['B1', 'B2'][k]; }); // both on plain floor spots
     const poor = { budget: 4000, brand: null };
     expect(chooseBike(g, 0, poor)).toBeNull();
     const rich = { budget: 5600, brand: null };
@@ -71,7 +71,7 @@ describe('customers + sales', () => {
   });
   it('customers walk out when nobody can serve them in time', () => {
     const g = stocked();
-    g.locations[0].sim = { nextArrival: null, nextTradeIn: null, customers: [], nextId: 1 };
+    g.locations[0].sim = { nextArrival: null, nextTradeIn: null, customers: [], nextId: 1, piles: 0 };
     // flood the store: 40 customers arrive at once, one salesperson
     const s = g.locations[0].sim;
     for (let k = 0; k < 40; k++) s.customers.push({ id: s.nextId++, budget: 1, brand: null, arrivedAt: at(2, 10), phase: 'queue', giveUpAt: at(2, 10, 5), look: 1 });
@@ -104,7 +104,7 @@ describe('customers + sales', () => {
 // Force a haggle so the player actions can be tested.
 function haggleSetup(seed = 1) {
   const g = stocked(['yzf-r3'], seed);
-  const s = (g.locations[0].sim = { nextArrival: at(9, 0), nextTradeIn: null, customers: [], nextId: 1 });
+  const s = (g.locations[0].sim = { nextArrival: at(9, 0), nextTradeIn: null, customers: [], nextId: 1, piles: 0 });
   const bike = g.locations[0].bikes[0];
   bike.reserved = 1;
   s.customers.push({ id: 1, budget: 9000, brand: null, arrivedAt: at(2, 10), phase: 'haggle', bikeUid: bike.uid, offer: 5000, list: 5499, deadline: at(2, 10, 1), round: 1, look: 1 });

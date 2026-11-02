@@ -2,6 +2,7 @@
 // While pinching the zoom is smooth; on release it settles on a whole-number
 // scale so pixel art stays crisp.
 export function makeCamera(viewport, layer, mapW, mapH, { scale = 2, min = 1, max = 4, onTap } = {}) {
+  // mapW/mapH change when you switch to a bigger location
   let x = 0, y = 0, s = scale;
   const pts = new Map(); // active pointers
   let gesture = null, moved = 0;
@@ -93,6 +94,7 @@ export function makeCamera(viewport, layer, mapW, mapH, { scale = 2, min = 1, ma
     lookAt(mx, my) { x = viewport.clientWidth / 2 - mx * s; y = viewport.clientHeight / 2 - my * s; apply(); },
     zoomTo(ns) { zoomAt(ns, viewport.clientWidth / 2, viewport.clientHeight / 2); },
     get pos() { return { x, y, s }; },
+    setSize(w, h) { mapW = w; mapH = h; apply(); },
     refresh: apply,
   };
 }

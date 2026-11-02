@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { newGame, advance } from '../../src/core/engine.js';
 import { orderBike, cancelOrder, deliveryTime, capacity, freeSpace, supplierCost, moveBike, isUnlocked } from '../../src/core/showroom.js';
 import { BIKES, BIKE, BRANDS } from '../../src/data/bikes.js';
-import { SPOTS } from '../../src/data/showroom.js';
+import { getLayout } from '../../src/data/layout.js';
+const SPOTS = getLayout(0).spots;
 import { decode, encode } from '../../src/core/save.js';
 
 const at = (y, mo, d, h = 0, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
@@ -97,9 +98,9 @@ describe('arranging the showroom', () => {
   it('only allowed while closed', () => {
     const g = setup();
     const [a] = g.locations[0].bikes;
-    expect(moveBike(g, 0, a.uid, 'B3', at(2026, 3, 3, 12)).ok).toBe(false);
-    expect(moveBike(g, 0, a.uid, 'B3', at(2026, 3, 3, 20)).ok).toBe(true);
-    expect(a.spot).toBe('B3');
+    expect(moveBike(g, 0, a.uid, SPOTS[3].id, at(2026, 3, 3, 12)).ok).toBe(false);
+    expect(moveBike(g, 0, a.uid, SPOTS[3].id, at(2026, 3, 3, 20)).ok).toBe(true);
+    expect(a.spot).toBe(SPOTS[3].id);
   });
   it('swaps when the target spot is taken, and rejects spots beyond capacity', () => {
     const g = setup();

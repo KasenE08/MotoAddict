@@ -21,12 +21,25 @@ export async function openModal({ title, body, actions = [], onClose, cls = '' }
 
 export function closeModal() { document.querySelectorAll('.modal-wrap').forEach((m) => m.remove()); }
 
+// Messages queue up so none are lost; each shows for ~2 seconds.
+const queue = [];
+let showing = false;
 export function toast(text) {
-  document.querySelectorAll('.toast').forEach((old) => old.remove()); // newest message replaces the last
+  if (queue.length >= 4) queue.shift();
+  if (queue.includes(text)) return;
+  queue.push(text);
+  if (!showing) next();
+}
+function next() {
+  const text = queue.shift();
+  if (text === undefined) { showing = false; return; }
+  showing = true;
+  document.querySelectorAll('.toast').forEach((old) => old.remove());
   const t = document.createElement('div');
   t.className = 'toast hud-el';
   t.textContent = text;
   document.getElementById('game').appendChild(t);
-  setTimeout(() => t.classList.add('out'), 1800);
-  setTimeout(() => t.remove(), 2300);
+  const ms = queue.length ? 1500 : 2000;
+  setTimeout(() => t.classList.add('out'), ms);
+  setTimeout(() => { t.remove(); next(); }, ms + 350);
 }

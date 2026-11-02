@@ -1,6 +1,16 @@
 // Pixel icons: vector strokes rasterized to a small grid with a dark outline.
 // 24x24 stroke paths, turned into crisp pixel icons at load time.
 const PATHS = {
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" fill="currentColor"/><path d="M10 21h4"/>',
+  megaphone: '<path d="M3 10v4h4l9 5V5L7 10z" fill="currentColor"/><path d="M19 9v6"/>',
+  wrench: '<path d="M14 6a4 4 0 0 0 5 5l-9 9-3-3 9-9" fill="currentColor"/>',
+  sparkle: '<path d="M12 2l2 7 7 2-7 2-2 7-2-7-7-2 7-2z" fill="currentColor"/>',
+  shield: '<path d="M12 2l8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5z" fill="currentColor"/>',
+  building: '<path d="M4 21V8l8-5 8 5v13z" fill="currentColor"/><path d="M9 21v-6h6v6"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" fill="currentColor"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>',
+  mute: '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6"/>',
+  check: '<path d="M4 12l5 5L20 6" stroke-width="3.4"/>',
   copy: '<rect x="8" y="8" width="13" height="13"/><path d="M4 16V3h13"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
   x: '<path d="M5 5l14 14M19 5L5 19" stroke-width="3.4"/>',
@@ -56,6 +66,7 @@ function pixIcon(name, color, n = 13) {
 }
 
 const ICONS = {
+  bell: '#ffd23f', megaphone: '#ff8ae2', wrench: '#a2a9b8', sparkle: '#a6e1ff', shield: '#5ab0e8', building: '#fff6e0', lock: '#c2b6d6', sound: '#fff6e0', mute: '#fff6e0', check: '#7ce35b',
   copy: '#fff6e0', upload: '#fff6e0', x: '#fff6e0', moon: '#a6e1ff', phone: '#fff6e0',
   bill: '#7ce35b', trend: '#7ce35b', star: '#ffd23f', broom: '#a6e1ff', staff: '#f4f0e6', bike: '#f4f0e6', clock: '#fff1a8',
   map: '#fff6e0', task: '#fff6e0', bars: '#fff6e0', trophy: '#fff6e0', gear: '#f4f0e6', save: '#f4f0e6', cart: '#fff6e0',

@@ -1,8 +1,9 @@
 // Haggle panel, trade-in offers and floating "+$" effects.
 import { BIKE } from '../data/bikes.js';
-import { SPOT } from '../data/showroom.js';
+import { getLayout } from '../data/layout.js';
 import { pendingHaggles, acceptOffer, counterOffer, refuseOffer, acceptTradeIn, declineTradeIn, tradeInValue } from '../core/sales.js';
 import { freeSpace } from '../core/showroom.js';
+import { haggleSeconds } from '../core/effects.js';
 import { money } from '../core/format.js';
 import { toMap } from '../render/world.js';
 import { openModal, toast } from './modal.js';
@@ -100,7 +101,7 @@ export function makeTradeIn(G) {
               <div><span>Resale value now</span><b class="g">${money(value)}</b></div>
               <div><span>New price</span><b>${money(bk.price)}</b></div>
             </div>
-            <p class="sub">A mechanic can repair it to raise its value (Phase 5).${space ? '' : ' <b class="warn">No free display spot.</b>'}</p>
+            <p class="sub">Hire a mechanic to repair it and raise its value.${space ? '' : ' <b class="warn">No free display spot.</b>'}</p>
           </div>
         </div>`),
       actions: [
@@ -130,4 +131,4 @@ export function floatMoney(amount, x, y, kind = 'sale') {
   layer.appendChild(el);
   setTimeout(() => el.remove(), 1600);
 }
-export const spotXY = (spotId) => { const s = SPOT[spotId]; return s ? [s.x, s.y] : [7, 6]; };
+export const spotXY = (spotId, loc = 0) => { const s = getLayout(loc).spot[spotId]; return s ? [s.x, s.y] : getLayout(loc).focus; };

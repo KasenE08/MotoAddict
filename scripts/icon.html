@@ -1,0 +1,29 @@
+<!doctype html><body style="margin:0;background:#000"><canvas id="c"></canvas>
+<script type="module">
+// App icon: pixel-art sunset showroom, gold coin, 3D Ninja H2 (drawn at 64px, scaled up crisp).
+import { renderBike3D } from '../src/render/bike3d.js';
+const q = new URLSearchParams(location.search), size = +q.get('s') || 512, mask = q.has('mask');
+const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+const x = c.getContext('2d');
+const r = (col, a, b, w, h) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+const bands = ['#1d1438', '#2a1d4d', '#3d2b66', '#5a3a7a', '#7a4a86', '#a8587e', '#d8706a', '#f0a050'];
+bands.forEach((col, k) => r(col, 0, k * 5, N, 5));
+for (let yy = 36; yy < 40; yy++) for (let xx = yy % 2; xx < N; xx += 2) r('#f0a050', xx, yy, 1, 1);
+r('#2a1d3d', 0, 40, N, 24);
+for (let yy = 40; yy < N; yy += 4) for (let xx = (yy / 4) % 2 ? 0 : 4; xx < N; xx += 8) r('#33244a', xx, yy, 4, 4);
+r('#120b1c', 0, 40, N, 1);
+// gold coin with $
+const cx = 46, cy = 15;
+for (let dy = -9; dy <= 9; dy++) { const hw = Math.floor(Math.sqrt(81 - dy * dy)); r('#120b1c', cx - hw - 1, cy + dy, hw * 2 + 3, 1); }
+for (let dy = -8; dy <= 8; dy++) { const hw = Math.floor(Math.sqrt(64 - dy * dy)); r(dy < 0 ? '#ffd23f' : '#e0a820', cx - hw, cy + dy, hw * 2 + 1, 1); }
+['..#..', '.####', '#.#..', '.###.', '..#.#', '####.', '..#..'].forEach((row, ry) => [...row].forEach((v, rx) => v === '#' && r('#8a4a23', cx - 2 + rx, cy - 3 + ry, 1, 1)));
+r('#fff1a8', cx - 5, cy - 6, 2, 2);
+const b = renderBike3D('ninja-h2', (-22 * Math.PI) / 180, 14.5, { lift: 0 });
+x.drawImage(b.c, Math.round(29 - b.ax), Math.round(58 - b.ay));
+const out = document.getElementById('c'); out.width = out.height = size;
+const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+const pad = mask ? Math.round(size * 0.1) : 0;
+o.fillStyle = '#1d1438'; o.fillRect(0, 0, size, size);
+o.drawImage(c, pad, pad, size - pad * 2, size - pad * 2);
+document.body.dataset.ready = 1;
+</script></body>
